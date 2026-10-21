@@ -1,4 +1,6 @@
 from django import forms
+from django.conf import settings
+from accounts.models import PAKISTANI_MOBILE_VALIDATOR
 
 from .models import Transaction
 
@@ -10,6 +12,7 @@ class CheckoutForm(forms.Form):
     )
     shipping_phone = forms.CharField(
         max_length=30,
+        validators=[PAKISTANI_MOBILE_VALIDATOR],
         widget=forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'tel'}),
     )
     shipping_address = forms.CharField(
@@ -32,6 +35,10 @@ class CheckoutForm(forms.Form):
             choice
             for choice in Transaction.PaymentMethod.choices
             if choice[0] != Transaction.PaymentMethod.PAYPAK
+            and (
+                settings.DEBUG
+                or choice[0] != Transaction.PaymentMethod.PAY_NOW
+            )
         ],
         widget=forms.RadioSelect,
     )

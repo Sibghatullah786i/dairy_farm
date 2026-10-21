@@ -1,12 +1,13 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
-from accounts.models import Customer
+from accounts.models import Customer, get_customer_for_user
 from products.models import Cart, Product
 
 from .forms import CheckoutForm
@@ -35,7 +36,7 @@ class CheckoutView(LoginRequiredMixin, View):
     template_name = 'transactions/checkout.html'
 
     def get(self, request):
-        customer = request.user.customer
+        customer = get_customer_for_user(request.user)
         cart_items = prepare_cart_items(customer)
         if not cart_items:
             messages.info(request, 'Your cart is empty.')
@@ -51,12 +52,13 @@ class CheckoutView(LoginRequiredMixin, View):
             'form': form,
             'cart_items': cart_items,
             'cart_total': cart_total(cart_items),
+            'debug': settings.DEBUG,
         })
 
     def post(self, request):
         form = CheckoutForm(request.POST)
         if not form.is_valid():
-            customer = request.user.customer
+            customer = get_customer_for_user(request.user)
             cart_items = prepare_cart_items(customer)
             if not cart_items:
                 messages.error(request, 'Your cart is empty. Add products before checking out.')
@@ -65,9 +67,10 @@ class CheckoutView(LoginRequiredMixin, View):
                 'form': form,
                 'cart_items': cart_items,
                 'cart_total': cart_total(cart_items),
+                'debug': settings.DEBUG,
             })
 
-        customer = request.user.customer
+        customer = get_customer_for_user(request.user)
         with transaction.atomic():
             customer = Customer.objects.select_for_update().get(pk=customer.pk)
             cart_items = list(
@@ -151,7 +154,9 @@ class CheckoutView(LoginRequiredMixin, View):
 class TransactionListView(LoginRequiredMixin, View):
     def get(self, request):
         transactions = (
-            Transaction.objects.filter(customer=request.user.customer)
+            Transaction.objects.filter(
+                customer=get_customer_for_user(request.user),
+            )
             .prefetch_related('items')
         )
         return render(request, 'transactions/transaction_list.html', {
@@ -164,7 +169,7 @@ class TransactionDetailView(LoginRequiredMixin, View):
         transaction_record = get_object_or_404(
             Transaction.objects.prefetch_related('items'),
             reference=reference,
-            customer=request.user.customer,
+            customer=get_customer_for_user(request.user),
         )
         return render(request, 'transactions/transaction_detail.html', {
             'transaction': transaction_record,

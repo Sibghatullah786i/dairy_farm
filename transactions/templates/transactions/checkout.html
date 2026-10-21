@@ -42,10 +42,16 @@
                                 {% endfor %}
                             </div>
                         {% endfor %}
-                        <p class="small text-muted">
-                            Pay now is a simulated payment option and does not process a real payment.
-                            Cash on delivery and bank transfer remain pending until confirmed.
-                        </p>
+                        {% if debug %}
+                            <p class="small text-muted">
+                                Pay now is simulated and does not process a real payment.
+                                Cash on delivery and bank transfer remain pending until confirmed.
+                            </p>
+                        {% else %}
+                            <p class="small text-muted">
+                                Cash on delivery and bank transfer remain pending until confirmed.
+                            </p>
+                        {% endif %}
                         <button type="submit" class="btn btn-success fw-bold px-4">Place Order</button>
                     </form>
                 </div>

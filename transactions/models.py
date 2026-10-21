@@ -1,6 +1,7 @@
 import uuid
 
-from django.db import models
+from django.db import models, transaction
+from django.db.models import F
 
 from accounts.models import Customer
 from products.models import Product
@@ -52,6 +53,33 @@ class Transaction(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        status_is_saved = (
+            kwargs.get('update_fields') is None
+            or 'order_status' in kwargs['update_fields']
+        )
+        if self._state.adding or not status_is_saved:
+            return super().save(*args, **kwargs)
+
+        with transaction.atomic():
+            previous_status = (
+                type(self).objects.select_for_update()
+                .filter(pk=self.pk)
+                .values_list('order_status', flat=True)
+                .first()
+            )
+            super().save(*args, **kwargs)
+            if (
+                previous_status != self.OrderStatus.CANCELLED
+                and self.order_status == self.OrderStatus.CANCELLED
+            ):
+                for product_id, quantity in self.items.filter(
+                    product__isnull=False,
+                ).values_list('product_id', 'quantity'):
+                    Product.objects.filter(pk=product_id).update(
+                        stock=F('stock') + quantity,
+                    )
 
     def __str__(self):
         return f'{self.reference} - {self.customer}'

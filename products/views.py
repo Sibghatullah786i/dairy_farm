@@ -10,8 +10,8 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
 from .forms import ContactMessageForm
-from .models import Cart, Category, Product
-from accounts.models import Customer
+from .models import Cart, Product
+from accounts.models import Customer, get_customer_for_user
 
 
 class HomeView(ListView):
@@ -28,7 +28,6 @@ class HomeView(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['categories'] = Category.objects.all()
         context['search_query'] = self.request.GET.get('search', '').strip()
         return context
 
@@ -36,8 +35,6 @@ class HomeView(ListView):
 class CategoryView(View):
     def get(self, request):
         category_slug = request.GET.get('slug')
-        categories = Category.objects.all()
-
         if category_slug:
             category_products = Product.objects.filter(
                 category__slug=category_slug,
@@ -48,7 +45,6 @@ class CategoryView(View):
 
         return render(request, 'products/category.html', {
             'category_products': category_products,
-            'categories': categories,
             'selected_slug': category_slug,
         })
 
@@ -60,12 +56,6 @@ class ProductDetailView(DetailView):
 
     def get_queryset(self):
         return Product.objects.filter(is_active=True).select_related('category')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['categories'] = Category.objects.all()
-        return context
-
 
 class AboutView(View):
     def get(self, request):
@@ -92,7 +82,7 @@ class CartView(View):
     def get(self, request):
         if request.user.is_authenticated:
             cart_items = Cart.objects.filter(
-                customer=request.user.customer,
+                customer=get_customer_for_user(request.user),
             ).select_related('product')
             for item in cart_items:
                 item.line_total = item.product.price * item.quantity
@@ -107,7 +97,6 @@ class CartView(View):
         return render(request, 'products/cart.html', {
             'cart_items': cart_items,
             'cart_total': cart_total,
-            'categories': Category.objects.all(),
         })
 
 
@@ -117,13 +106,15 @@ class AddToCartView(LoginRequiredMixin, View):
             quantity = int(request.POST.get('quantity', '1'))
         except (TypeError, ValueError):
             messages.error(request, 'Please enter a valid quantity.')
-            return redirect('product_detail', pk=pk)
+            product = get_object_or_404(Product, pk=pk)
+            return redirect('product_detail', slug=product.slug)
 
         if quantity < 1 or quantity > 10:
             messages.error(request, 'Quantity must be between 1 and 10.')
-            return redirect('product_detail', pk=pk)
+            product = get_object_or_404(Product, pk=pk)
+            return redirect('product_detail', slug=product.slug)
 
-        customer = request.user.customer
+        customer = get_customer_for_user(request.user)
         with transaction.atomic():
             customer = Customer.objects.select_for_update().get(pk=customer.pk)
             product = get_object_or_404(
@@ -133,10 +124,10 @@ class AddToCartView(LoginRequiredMixin, View):
             )
             if product.stock < 1:
                 messages.error(request, f'{product.name} is out of stock.')
-                return redirect('product_detail', pk=product.pk)
+                return redirect('product_detail', slug=product.slug)
             if quantity > product.stock:
                 messages.error(request, f'Only {product.stock} of {product.name} are available.')
-                return redirect('product_detail', pk=product.pk)
+                return redirect('product_detail', slug=product.slug)
 
             cart_item, created = Cart.objects.get_or_create(
                 customer=customer,
@@ -145,10 +136,10 @@ class AddToCartView(LoginRequiredMixin, View):
             new_quantity = quantity if created else cart_item.quantity + quantity
             if new_quantity > 10:
                 messages.error(request, 'A product is limited to 10 per cart.')
-                return redirect('product_detail', pk=product.pk)
+                return redirect('product_detail', slug=product.slug)
             if new_quantity > product.stock:
                 messages.error(request, f'Only {product.stock} of {product.name} are available.')
-                return redirect('product_detail', pk=product.pk)
+                return redirect('product_detail', slug=product.slug)
 
             cart_item.quantity = new_quantity
             cart_item.save(update_fields=['quantity'])
@@ -173,7 +164,7 @@ def update_cart_item(request, pk):
         messages.error(request, 'Quantity must be between 1 and 10.')
         return redirect('cart')
 
-    customer = request.user.customer
+    customer = get_customer_for_user(request.user)
     with transaction.atomic():
         Customer.objects.select_for_update().get(pk=customer.pk)
         cart_item = get_object_or_404(
@@ -197,7 +188,7 @@ def update_cart_item(request, pk):
 @login_required
 @require_POST
 def remove_from_cart(request, pk):
-    customer = request.user.customer
+    customer = get_customer_for_user(request.user)
     with transaction.atomic():
         Customer.objects.select_for_update().get(pk=customer.pk)
         cart_item = get_object_or_404(

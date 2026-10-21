@@ -78,7 +78,7 @@
                             <!-- Action Buttons -->
                             <div class="mt-auto">
                                 <div class="d-flex gap-2 mb-2">
-                                    <a href="{% url 'product_detail' product.id %}" class="btn btn-outline-success btn-sm w-50 fw-bold">
+                                    <a href="{% url 'product_detail' product.slug %}" class="btn btn-outline-success btn-sm w-50 fw-bold">
                                         View Details
                                     </a>
                                     <form method="post" action="{% url 'add_to_cart' product.id %}" class="w-50">
