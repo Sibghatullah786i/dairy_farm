@@ -5,6 +5,12 @@ from django.dispatch import receiver
 from django.core.validators import RegexValidator
 
 
+PAKISTANI_MOBILE_VALIDATOR = RegexValidator(
+    r'^03\d{9}$',
+    'Enter an 11-digit Pakistani mobile number.',
+)
+
+
 class Customer(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=200, default='')
@@ -14,7 +20,7 @@ class Customer(models.Model):
         max_length=11,
         blank=True,
         default='',
-        validators=[RegexValidator(r'^03\d{9}$', 'Enter an 11-digit Pakistani mobile number.')],
+        validators=[PAKISTANI_MOBILE_VALIDATOR],
     )
     zipcode = models.CharField(
         max_length=5,
@@ -27,8 +33,15 @@ class Customer(models.Model):
         return self.name or self.user.username
 
 
-# Signal automatically creates a Customer profile whenever a User is created
+def get_customer_for_user(user):
+    customer, _ = Customer.objects.get_or_create(
+        user=user,
+        defaults={'name': user.username},
+    )
+    return customer
+
+
 @receiver(post_save, sender=User)
 def create_or_update_customer_profile(sender, instance, created, **kwargs):
     if created:
-        Customer.objects.create(user=instance, name=instance.username)
+        get_customer_for_user(instance)

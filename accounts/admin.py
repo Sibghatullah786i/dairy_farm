@@ -1,7 +1,47 @@
+from django import forms
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.forms import UserChangeForm, UserCreationForm
+from django.contrib.auth.models import User
+
 from .models import Customer
 
-# Register your models here.
+
+class CaseInsensitiveUserFields:
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        if User.objects.filter(username__iexact=username).exclude(
+            pk=self.instance.pk,
+        ).exists():
+            raise forms.ValidationError('A user with that username already exists.')
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '')
+        if email and User.objects.filter(email__iexact=email).exclude(
+            pk=self.instance.pk,
+        ).exists():
+            raise forms.ValidationError('An account with this email address already exists.')
+        return email
+
+
+class AdminUserChangeForm(CaseInsensitiveUserFields, UserChangeForm):
+    pass
+
+
+class AdminUserCreationForm(CaseInsensitiveUserFields, UserCreationForm):
+    pass
+
+
+class CaseInsensitiveUserAdmin(UserAdmin):
+    form = AdminUserChangeForm
+    add_form = AdminUserCreationForm
+
+
+admin.site.unregister(User)
+admin.site.register(User, CaseInsensitiveUserAdmin)
+
+
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
     list_display = ('user', 'name', 'city','locality', 'mobile', 'zipcode')

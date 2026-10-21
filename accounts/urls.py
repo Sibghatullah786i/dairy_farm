@@ -29,11 +29,7 @@ urlpatterns = [
         name='login'
     ),
 
-    path(
-        'logout/',
-        UserLogoutView.as_view(),
-        name='logout'
-    ),
+    path('logout/', UserLogoutView.as_view(), name='logout'),
 
     path(
         'reset-password/',
