@@ -1,0 +1,67 @@
+{% extends 'products/index.html' %}
+{% load static %}
+
+{% block title %}My Profile - Almeer Dairy Products{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-7">
+
+            <!-- Success / Error Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-4" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Profile Form Card -->
+            <div class="card shadow border-0 rounded-3">
+                <div class="card-header bg-success text-white p-4 text-center rounded-top">
+                    <i class="fa-solid fa-user-gear display-4 mb-2"></i>
+                    <h3 class="fw-bold mb-0">Customer Profile</h3>
+                    <p class="small mb-0 opacity-75">Update your delivery address and contact information</p>
+                </div>
+
+                <div class="card-body p-4 p-md-5">
+                    <form method="POST" action="" novalidate>
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            {% for error in form.non_field_errors %}
+                                <div class="alert alert-danger p-2 small">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <!-- Dynamic Form Loop rendering your ModelForm Widgets -->
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label fw-bold">
+                                    {{ field.label }}
+                                </label>
+                                {{ field }}
+                                {% if field.errors %}
+                                    {% for error in field.errors %}
+                                        <div class="text-danger small mt-1">{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+
+                        <!-- Submit Button -->
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-success btn-lg fw-bold">
+                                <i class="fa-solid fa-floppy-disk me-2"></i>Save Profile
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

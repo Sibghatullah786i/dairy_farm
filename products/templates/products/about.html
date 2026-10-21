@@ -1,0 +1,69 @@
+{% extends 'products/index.html' %}
+{% load static %}
+
+{% block title %}About Us - Almeer Dairy Products{% endblock %}
+
+{% block content %}
+<!-- Header Banner -->
+<div class="bg-success text-white py-5 mb-5 text-center">
+    <div class="container">
+        <h1 class="fw-bold display-4">About Almeer Dairy</h1>
+        <p class="lead mb-0">Delivering 100% Pure & Fresh Dairy Products to Your Doorstep</p>
+    </div>
+</div>
+
+<div class="container my-5">
+    <!-- Our Story Section -->
+    <div class="row align-items-center mb-5 g-4">
+        <div class="col-md-6">
+            <h2 class="fw-bold text-success mb-3">Our Story</h2>
+            <p class="text-muted fs-5">
+                At <strong>Almeer Dairy</strong>, we are committed to producing and providing highest-quality, 
+                pure, and organic dairy products directly from sustainable farms to your home.
+            </p>
+            <p class="text-muted">
+                From fresh milk and rich curd to authentic ghee, paneer, and delicious milkshakes, 
+                every product undergoes strict quality checks to preserve natural taste, freshness, and essential nutrients.
+            </p>
+        </div>
+        <div class="col-md-6 text-center">
+            <img src="https://via.placeholder.com/500x350?text=Almeer+Dairy+Farm" class="img-fluid rounded shadow" alt="About Almeer Dairy">
+        </div>
+    </div>
+
+    <!-- Features / Why Choose Us -->
+    <div class="row g-4 my-5 text-center">
+        <h2 class="fw-bold text-center mb-4">Why Choose Us?</h2>
+        
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm p-4">
+                <div class="card-body">
+                    <i class="fa-solid fa-cow text-success display-4 mb-3"></i>
+                    <h5 class="fw-bold">100% Pure & Organic</h5>
+                    <p class="text-muted small">Zero preservatives or chemicals. Sourced straight from healthy farm cows.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm p-4">
+                <div class="card-body">
+                    <i class="fa-solid fa-truck-fast text-success display-4 mb-3"></i>
+                    <h5 class="fw-bold">Daily Express Delivery</h5>
+                    <p class="text-muted small">Fresh morning deliveries to keep your family healthy and energized every day.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm p-4">
+                <div class="card-body">
+                    <i class="fa-solid fa-shield-heart text-success display-4 mb-3"></i>
+                    <h5 class="fw-bold">Hygienic & Safe Packaging</h5>
+                    <p class="text-muted small">Processed and packed under strict temperature controls and hygienic conditions.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

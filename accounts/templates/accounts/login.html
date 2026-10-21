@@ -1,0 +1,88 @@
+{% extends 'products/index.html' %}
+{% load static %}
+
+{% block title %}Login - Almeer Dairy Products{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+
+            <!-- Messages Alert -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-4" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Login Card -->
+            <div class="card shadow border-0 rounded-3">
+                <div class="card-body p-4 p-md-5">
+
+                    <!-- Header -->
+                    <div class="text-center mb-4">
+                        <i class="fa-solid fa-right-to-bracket text-success display-4 mb-2"></i>
+                        <h3 class="fw-bold text-dark">Customer Login</h3>
+                        <p class="text-muted small">Sign in to access your cart and account</p>
+                    </div>
+
+                    <!-- Form -->
+                    <form method="POST" action="" novalidate>
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ next }}">
+
+                        {% if form.non_field_errors %}
+                            {% for error in form.non_field_errors %}
+                                <div class="alert alert-danger p-2 small">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <!-- Username Field -->
+                        <div class="mb-3">
+                            <label for="{{ form.username.id_for_label }}" class="form-label fw-bold">Username</label>
+                            {{ form.username }}
+                            {% if form.username.errors %}
+                                {% for error in form.username.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+
+                        <!-- Password Field with Forgot Password Link -->
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label for="{{ form.password.id_for_label }}" class="form-label fw-bold mb-0">Password</label>
+                                <a href="{% url 'reset_password' %}" class="text-success small text-decoration-none">Forgot Password?</a>
+                            </div>
+                            {{ form.password }}
+                            {% if form.password.errors %}
+                                {% for error in form.password.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid mb-3">
+                            <button type="submit" class="btn btn-success btn-lg fw-bold">
+                                Login
+                            </button>
+                        </div>
+
+                        <!-- Registration Route Link -->
+                        <div class="text-center mt-4 border-top pt-3">
+                            <p class="text-muted small mb-1">New to Almeer Dairy?</p>
+                            <a href="{% url 'registration' %}" class="text-success fw-bold text-decoration-none">Create an Account</a>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

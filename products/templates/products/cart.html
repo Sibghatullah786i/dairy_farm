@@ -1,0 +1,101 @@
+{% extends 'products/index.html' %}
+{% load static %}
+
+{% block title %}Shopping Cart - Almeer Dairy Products{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    <h3 class="fw-bold text-dark mb-4">
+        <i class="fa-solid fa-cart-shopping text-success me-2"></i>Your Cart
+    </h3>
+
+    {% if cart_items %}
+        <div class="row">
+            <!-- Cart Items List -->
+            <div class="col-md-8 mb-4">
+                <div class="card shadow-sm border-0 rounded-3">
+                    <div class="card-body p-4">
+                        {% for item in cart_items %}
+                            <div class="row align-items-center mb-3 pb-3 border-bottom">
+                                <!-- Product Image -->
+                                <div class="col-md-2 text-center mb-2 mb-md-0">
+                                    {% if item.product.image %}
+                                        <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" class="img-fluid rounded" style="max-height: 80px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 80px;">
+                                            <i class="fa-solid fa-cow text-success fs-3"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Product Info -->
+                                <div class="col-md-4">
+                                    <h5 class="fw-bold mb-1">{{ item.product.name }}</h5>
+                                    <p class="text-muted small mb-0">Price: Rs. {{ item.product.price }}</p>
+                                </div>
+
+                                <!-- Quantity -->
+                                <div class="col-md-3 text-center my-2 my-md-0">
+                                    <form method="post" action="{% url 'update_cart_item' item.pk %}" class="d-flex justify-content-center align-items-center gap-2">
+                                        {% csrf_token %}
+                                        <label for="quantity-{{ item.pk }}" class="visually-hidden">Quantity</label>
+                                        <input id="quantity-{{ item.pk }}" type="number" name="quantity" class="form-control text-center" value="{{ item.quantity }}" min="1" max="10" style="width: 80px;">
+                                        <button type="submit" class="btn btn-outline-success btn-sm">Update</button>
+                                    </form>
+                                    <form method="post" action="{% url 'remove_from_cart' item.pk %}" class="mt-2">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-link btn-sm text-danger">Remove</button>
+                                    </form>
+                                </div>
+
+                                <!-- Item Total -->
+                                <div class="col-md-3 text-end">
+                                    <h6 class="fw-bold text-success mb-0">Rs. {{ item.line_total|floatformat:2 }}</h6>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cart Summary -->
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 rounded-3">
+                    <div class="card-body p-4">
+                        <h5 class="fw-bold text-dark mb-3">Order Summary</h5>
+                        <div class="d-flex justify-content-between border-top pt-3">
+                            <span class="fw-bold">Total</span>
+                            <span class="fw-bold text-success">Rs. {{ cart_total|floatformat:2 }}</span>
+                        </div>
+                        <div class="d-grid mt-3">
+                            <a href="{% url 'transactions:checkout' %}" class="btn btn-success fw-bold">
+                                Proceed to Checkout
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <!-- Empty Cart -->
+        <div class="card shadow-sm border-0 text-center py-5">
+            <div class="card-body">
+                <i class="fa-solid fa-cart-flatbed text-muted display-1 mb-3"></i>
+                <h4 class="fw-bold text-dark">Your Cart is Empty</h4>
+                <p class="text-muted small mb-4">You have no items in your cart right now.</p>
+                <a href="{% url 'home' %}" class="btn btn-success fw-bold px-4 py-2">
+                    <i class="fa-solid fa-arrow-left me-2"></i>Continue Shopping
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

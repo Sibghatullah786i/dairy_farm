@@ -1,0 +1,94 @@
+{% extends 'products/index.html' %}
+{% load static %}
+
+{% block title %}Contact Us - Almeer Dairy Products{% endblock %}
+
+{% block content %}
+<!-- Header Banner -->
+<div class="bg-success text-white py-5 mb-5 text-center">
+    <div class="container">
+        <h1 class="fw-bold display-4">Contact Us</h1>
+        <p class="lead mb-0">We'd love to hear from you! Get in touch with Almeer Dair's.</p>
+    </div>
+</div>
+
+<div class="container my-5">
+    <!-- Success/Message Alert Block -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row g-5">
+        <!-- Contact Information Cards -->
+        <div class="col-lg-5">
+            <h3 class="fw-bold text-success mb-4">Get In Touch</h3>
+            
+            <div class="d-flex mb-4">
+                <div class="bg-success text-white rounded p-3 me-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                    <i class="fa-solid fa-location-dot fs-4"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold mb-1">Address</h5>
+                    <p class="text-muted mb-0">Almeer Dairy Farm Bakhri Ahmad Khan</p>
+                </div>
+            </div>
+
+            <div class="d-flex mb-4">
+                <div class="bg-success text-white rounded p-3 me-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                    <i class="fa-solid fa-phone fs-4"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold mb-1">Phone Number</h5>
+                    <p class="text-muted mb-0">+92 302 9617111 / +92 322 3279708</p>
+                </div>
+            </div>
+
+            <div class="d-flex mb-4">
+                <div class="bg-success text-white rounded p-3 me-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                    <i class="fa-solid fa-envelope fs-4"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold mb-1">Email Address</h5>
+                    <p class="text-muted mb-0">support@example.com</p>
+                </div>
+            </div>
+
+            <div class="d-flex mb-4">
+                <div class="bg-success text-white rounded p-3 me-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                    <i class="fa-solid fa-clock fs-4"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold mb-1">Working Hours</h5>
+                    <p class="text-muted mb-0">Mon - Sat: 7:00 AM - 9:00 PM</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Form -->
+        <div class="col-lg-7">
+            <div class="card shadow-sm border-0 p-4">
+                <h3 class="fw-bold text-dark mb-4">Send Us a Message</h3>
+                <form method="POST" action="{% url 'contact' %}">
+                    {% csrf_token %}
+                    {% for field in form %}
+                        <div class="mb-3">
+                            <label for="{{ field.id_for_label }}" class="form-label fw-bold">{{ field.label }}</label>
+                            {{ field }}
+                            {% for error in field.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+
+                    <button type="submit" class="btn btn-success btn-lg w-100 fw-bold">Send Message</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

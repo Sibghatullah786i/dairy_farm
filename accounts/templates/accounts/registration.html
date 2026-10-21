@@ -1,0 +1,107 @@
+{% extends 'products/index.html' %}
+{% load static %}
+
+{% block title %}Customer Registration - Almeer Dairy Products{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+
+            <!-- Success/Error Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-4" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Registration Card -->
+            <div class="card shadow border-0 rounded-3">
+                <div class="card-body p-4 p-md-5">
+
+                    <!-- Header -->
+                    <div class="text-center mb-4">
+                        <i class="fa-solid fa-user-plus text-success display-4 mb-2"></i>
+                        <h3 class="fw-bold text-dark">Customer Registration</h3>
+                        <p class="text-muted small">Create an account to start shopping pure dairy products</p>
+                    </div>
+
+                    <!-- Registration Form -->
+                    <form method="POST" action="" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Non-field / Form-wide Errors -->
+                        {% if form.non_field_errors %}
+                            {% for error in form.non_field_errors %}
+                                <div class="alert alert-danger p-2 small">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <!-- Username Field -->
+                        <div class="mb-3">
+                            <label for="{{ form.username.id_for_label }}" class="form-label fw-bold">Username</label>
+                            {{ form.username }}
+                            {% if form.username.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ form.username.errors|striptags }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Email Field -->
+                        <div class="mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label fw-bold">Email Address</label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ form.email.errors|striptags }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Password 1 Field -->
+                        <div class="mb-3">
+                            <label for="{{ form.password1.id_for_label }}" class="form-label fw-bold">Password</label>
+                            {{ form.password1 }}
+                            {% if form.password1.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ form.password1.errors|striptags }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Password 2 Field -->
+                        <div class="mb-4">
+                            <label for="{{ form.password2.id_for_label }}" class="form-label fw-bold">Confirm Password</label>
+                            {{ form.password2 }}
+                            {% if form.password2.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ form.password2.errors|striptags }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid mb-3">
+                            <button type="submit" class="btn btn-success btn-lg fw-bold">
+                                Register Account
+                            </button>
+                        </div>
+
+                        <!-- Login Route Link -->
+                        <div class="text-center mt-4 border-top pt-3">
+                            <p class="text-muted small mb-0">Already have an account?</p>
+                            <a href="{% url 'login' %}" class="text-success fw-bold text-decoration-none">Login Here</a>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends 'products/index.html' %}
+
+{% block title %}Checkout - Almeer Dairy Products{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h2 class="fw-bold mb-4">Checkout</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" role="alert">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h4 class="fw-bold mb-3">Delivery details</h4>
+                    <form method="post">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                {% if field.name != 'payment_method' %}
+                                    <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                {% endif %}
+                                {% if field.name == 'payment_method' %}
+                                    <fieldset>
+                                        <legend class="form-label fw-semibold">Payment method</legend>
+                                        {% for choice in field %}
+                                            <div class="form-check mb-2">
+                                                {{ choice.tag }}
+                                                <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+                                            </div>
+                                        {% endfor %}
+                                    </fieldset>
+                                {% else %}
+                                    {{ field }}
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        <p class="small text-muted">
+                            Pay now is a simulated payment option and does not process a real payment.
+                            Cash on delivery and bank transfer remain pending until confirmed.
+                        </p>
+                        <button type="submit" class="btn btn-success fw-bold px-4">Place Order</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h4 class="fw-bold mb-3">Order summary</h4>
+                    {% for item in cart_items %}
+                        <div class="d-flex justify-content-between border-bottom py-2">
+                            <span>{{ item.product.name }} × {{ item.quantity }}</span>
+                            <span>Rs. {{ item.line_total|floatformat:2 }}</span>
+                        </div>
+                    {% endfor %}
+                    <div class="d-flex justify-content-between fw-bold pt-3">
+                        <span>Total (PKR)</span>
+                        <span>Rs. {{ cart_total|floatformat:2 }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

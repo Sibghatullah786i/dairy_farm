@@ -1,0 +1,64 @@
+{% extends 'products/index.html' %}
+
+{% block title %}Order {{ transaction.reference }} - Almeer Dairy Products{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" role="alert">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+        <h2 class="fw-bold mb-0">Order details</h2>
+        <a href="{% url 'transactions:list' %}" class="btn btn-outline-success">Transaction history</a>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Reference</dt>
+                <dd class="col-sm-8">{{ transaction.reference }}</dd>
+                <dt class="col-sm-4">Placed</dt>
+                <dd class="col-sm-8">{{ transaction.created_at|date:"d M Y, H:i" }}</dd>
+                <dt class="col-sm-4">Payment method</dt>
+                <dd class="col-sm-8">{{ transaction.get_payment_method_display }}</dd>
+                <dt class="col-sm-4">Payment status</dt>
+                <dd class="col-sm-8"><span class="badge bg-warning text-dark">{{ transaction.get_payment_status_display }}</span></dd>
+                <dt class="col-sm-4">Order status</dt>
+                <dd class="col-sm-8">{{ transaction.get_order_status_display }}</dd>
+                <dt class="col-sm-4">Delivery to</dt>
+                <dd class="col-sm-8">
+                    {{ transaction.shipping_name }}<br>
+                    {{ transaction.shipping_phone }}<br>
+                    {{ transaction.shipping_address }}, {{ transaction.shipping_city }}
+                </dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <h4 class="fw-bold mb-3">Items</h4>
+            {% for item in transaction.items.all %}
+                <div class="d-flex justify-content-between border-bottom py-2">
+                    <span>{{ item.product_name }} × {{ item.quantity }}</span>
+                    <span>{{ transaction.currency }} {{ item.line_total|floatformat:2 }}</span>
+                </div>
+            {% endfor %}
+            <div class="d-flex justify-content-between fw-bold pt-3">
+                <span>Total</span>
+                <span>{{ transaction.currency }} {{ transaction.total_amount|floatformat:2 }}</span>
+            </div>
+            {% if transaction.payment_status == 'paid' %}
+                <p class="small text-success mt-3 mb-0">Payment is marked as paid by the simulated payment option.</p>
+            {% else %}
+                <p class="small text-muted mt-3 mb-0">
+                    Payment is recorded as pending. Contact the store for bank-transfer instructions.
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

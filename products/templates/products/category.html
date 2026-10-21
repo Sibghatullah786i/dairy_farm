@@ -1,0 +1,70 @@
+{% extends 'products/index.html' %}
+{% load static %}
+
+{% block title %}Categories - Ecomm Dairy Products{% endblock %}
+
+{% block content %}
+
+<section class="container my-5">
+    <!-- Category Header -->
+    <div class="text-center mb-5">
+        <h2 class="fw-bold">Product Categories</h2>
+        <p class="text-muted">Explore our wide selection of fresh dairy categories</p>
+    </div>
+
+    <!-- Category Badges / Cards Navigation -->
+    <div class="row g-3 mb-5">
+        {% for category in categories %}
+        <div class="col-6 col-md-3">
+            <a href="{% url 'category' %}?slug={{ category.slug }}" class="card text-center p-3 text-decoration-none shadow-sm hover-shadow bg-light">
+                <i class="fa-solid fa-cow fs-2 text-primary mb-2"></i>
+                <h6 class="fw-bold text-dark mb-0">{{ category.name }}</h6>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Category Product Listing -->
+    <h3 class="fw-bold mb-4">Category Items</h3>
+    <div class="row g-4">
+        {% for product in category_products %}
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card h-100 shadow-sm">
+                {% if product.image %}
+                    <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.name }}" style="height: 220px; object-fit: cover;">
+                {% else %}
+                    <img src="https://via.placeholder.com/300x200?text=No+Image" class="card-img-top" alt="No image available" style="height: 220px; object-fit: cover;">
+                {% endif %}
+
+                <div class="card-body text-center d-flex flex-column">
+                    <h5 class="card-title fw-bold">{{ product.name }}</h5>
+                    <p class="card-text text-muted flex-grow-1">{{ product.description }}</p>
+                    <h6 class="fw-bold text-success mb-3">Rs. {{ product.price }}</h6>
+                    {% if product.stock %}
+                        <p class="text-muted small">In stock: {{ product.stock }}</p>
+                    {% else %}
+                        <p class="text-danger small">Out of stock</p>
+                    {% endif %}
+
+                    <div class="d-flex gap-2 mt-auto">
+                        <form method="post" action="{% url 'add_to_cart' product.id %}" class="flex-fill">
+                            {% csrf_token %}
+                            <button type="submit" name="action" value="add" class="btn btn-outline-primary w-100" {% if not product.stock %}disabled{% endif %}>Add to Cart</button>
+                        </form>
+                        <form method="post" action="{% url 'add_to_cart' product.id %}" class="flex-fill">
+                            {% csrf_token %}
+                            <button type="submit" name="action" value="buy_now" class="btn btn-primary w-100" {% if not product.stock %}disabled{% endif %}>Buy Now</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center">
+            <p class="text-muted">Select a category above or check back later for available items.</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+{% endblock %}

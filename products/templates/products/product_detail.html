@@ -1,0 +1,111 @@
+{% extends 'products/index.html' %}
+{% load static %}
+
+{% block title %}{{ product.name }} - Details | Ecomm{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}" class="text-success text-decoration-none">Home</a></li>
+            {% if product.category %}
+                <li class="breadcrumb-item">
+                    <a href="{% url 'category' %}?slug={{ product.category.slug }}" class="text-success text-decoration-none">
+                        {{ product.category.name }}
+                    </a>
+                </li>
+            {% endif %}
+            <li class="breadcrumb-item active" aria-current="page">{{ product.name }}</li>
+        </ol>
+    </nav>
+
+    <!-- Product Detail Card -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <div class="row g-4 align-items-center">
+                
+                <!-- Product Image Column -->
+                <div class="col-md-6 text-center">
+                    {% if product.image %}
+                        <img src="{{ product.image.url }}" class="img-fluid rounded shadow-sm" alt="{{ product.name }}" style="max-height: 400px; width: 100%; object-fit: cover;">
+                    {% else %}
+                        <img src="https://via.placeholder.com/500x400?text=No+Image+Available" class="img-fluid rounded shadow-sm" alt="No Image" style="max-height: 400px; width: 100%; object-fit: cover;">
+                    {% endif %}
+                </div>
+
+                <!-- Product Info Column -->
+                <div class="col-md-6">
+                    {% if product.category %}
+                        <span class="badge bg-success mb-2 fs-6">{{ product.category.name }}</span>
+                    {% endif %}
+
+                    <h1 class="fw-bold text-dark mb-2">{{ product.name }}</h1>
+                    
+                    <h3 class="fw-bold text-success mb-3">Rs. {{ product.price }}</h3>
+                    {% if product.stock %}
+                        <p class="text-muted">In stock: {{ product.stock }}</p>
+                    {% else %}
+                        <p class="text-danger fw-semibold">Out of stock</p>
+                    {% endif %}
+
+                    <p class="text-muted fs-5 mb-4">
+                        {{ product.description }}
+                    </p>
+
+                    <hr class="my-4">
+
+                    <!-- Quantity & Action Buttons -->
+                    <form method="POST" action="{% url 'add_to_cart' product.id %}" class="mb-3">
+                        {% csrf_token %}
+                        <div class="row g-3 align-items-center mb-4">
+                            <div class="col-auto">
+                                <label for="quantity" class="col-form-label fw-bold">Quantity:</label>
+                            </div>
+                            <div class="col-auto">
+                                <input type="number" id="quantity" name="quantity" class="form-control text-center" value="1" min="1" max="10" style="width: 80px;">
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-sm-flex">
+                            <button type="submit" name="action" value="add" class="btn btn-outline-success btn-lg px-4 flex-fill" {% if not product.stock %}disabled{% endif %}>
+                                <i class="fa-solid fa-cart-shopping me-2"></i>Add to Cart
+                            </button>
+                            <button type="submit" name="action" value="buy_now" class="btn btn-success btn-lg px-4 flex-fill fw-bold" {% if not product.stock %}disabled{% endif %}>
+                                Buy Now
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Extra Product Highlights -->
+                    <div class="mt-4 pt-3 border-top">
+                        <div class="row text-center text-muted g-2">
+                            <div class="col-4">
+                                <i class="fa-solid fa-truck-fast fs-4 text-success mb-1"></i>
+                                <p class="small mb-0">Fast Delivery</p>
+                            </div>
+                            <div class="col-4">
+                                <i class="fa-solid fa-leaf fs-4 text-success mb-1"></i>
+                                <p class="small mb-0">100% Fresh</p>
+                            </div>
+                            <div class="col-4">
+                                <i class="fa-solid fa-shield-halved fs-4 text-success mb-1"></i>
+                                <p class="small mb-0">Quality Assured</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
