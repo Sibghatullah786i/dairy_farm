@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from django.conf import settings
+from django.core.files import File
+from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand, CommandError
 
 from products.models import Category, Product
@@ -96,9 +98,17 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         for entry in STARTER_PRODUCTS:
-            image_path = Path(settings.MEDIA_ROOT) / entry['image']
-            if not image_path.is_file():
-                raise CommandError(f'Seed image does not exist: {image_path}')
+            source_path = (
+                Path(settings.BASE_DIR)
+                / 'products'
+                / 'seed_images'
+                / Path(entry['image']).name
+            )
+            if not source_path.is_file():
+                raise CommandError(f'Seed image does not exist: {source_path}')
+            if not default_storage.exists(entry['image']):
+                with source_path.open('rb') as source_file:
+                    default_storage.save(entry['image'], File(source_file))
 
             category, _ = Category.objects.update_or_create(
                 slug=entry['category_slug'],

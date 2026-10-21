@@ -48,16 +48,17 @@ Open <http://127.0.0.1:8000/> in a browser. The Django admin is available at <ht
 
 ## Payments
 
-Checkout accepts cash on delivery and bank transfer. The "Pay now (simulated)"
-option marks an order paid for demonstration only; it does not process or collect
-real payments. Cash on delivery and bank transfer orders remain pending until
-confirmed. Contact the store for bank-transfer instructions.
+Checkout accepts cash on delivery and bank transfer. In development only, the
+"Pay now (simulated)" option is available for demonstrations; it does not
+process or collect real payments. Cash on delivery and bank transfer orders
+remain pending until confirmed. Contact the store for bank-transfer instructions.
 
 ## Notes
 
 - The local SQLite database is created as `db.sqlite3` and is ignored by Git.
 - Product uploads are stored under `media/`; this directory is ignored by Git.
-- `python manage.py seed_store` creates the starter categories and products using
-  the bundled sample images.
+- `python manage.py seed_store` creates the starter categories and products and
+  copies the bundled images from `products/seed_images/` into `media/`.
+- Password reset emails are printed to the console while `DJANGO_DEBUG=true`.
 - Never commit `DJANGO_SECRET_KEY`; configure it through the deployment
   environment.
