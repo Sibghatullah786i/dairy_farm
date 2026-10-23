@@ -9,7 +9,7 @@ from .models import Customer
 
 class CaseInsensitiveUserFields:
     def clean_username(self):
-        username = self.cleaned_data['username']
+        username = self.cleaned_data['username'].strip().lower()
         if User.objects.filter(username__iexact=username).exclude(
             pk=self.instance.pk,
         ).exists():
@@ -17,7 +17,7 @@ class CaseInsensitiveUserFields:
         return username
 
     def clean_email(self):
-        email = self.cleaned_data.get('email', '')
+        email = self.cleaned_data.get('email', '').strip().lower()
         if email and User.objects.filter(email__iexact=email).exclude(
             pk=self.instance.pk,
         ).exists():
@@ -30,12 +30,21 @@ class AdminUserChangeForm(CaseInsensitiveUserFields, UserChangeForm):
 
 
 class AdminUserCreationForm(CaseInsensitiveUserFields, UserCreationForm):
-    pass
+    email = forms.EmailField(required=False)
+
+    class Meta(UserCreationForm.Meta):
+        fields = ('username', 'email')
 
 
 class CaseInsensitiveUserAdmin(UserAdmin):
     form = AdminUserChangeForm
     add_form = AdminUserCreationForm
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('username', 'email', 'password1', 'password2'),
+        }),
+    )
 
 
 admin.site.unregister(User)

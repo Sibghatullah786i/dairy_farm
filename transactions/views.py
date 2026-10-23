@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
+from django.db.models import F
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
@@ -108,6 +109,25 @@ class CheckoutView(LoginRequiredMixin, View):
                     return redirect('cart')
                 item.product = product
 
+            stock_failure = None
+            for item in cart_items:
+                updated = Product.objects.filter(
+                    pk=item.product_id,
+                    is_active=True,
+                    stock__gte=item.quantity,
+                ).update(stock=F('stock') - item.quantity)
+                if not updated:
+                    stock_failure = item.product
+                    break
+            if stock_failure:
+                transaction.set_rollback(True)
+                messages.error(
+                    request,
+                    f'The available stock for {stock_failure.name} changed. '
+                    'Please review your cart and try again.',
+                )
+                return redirect('cart')
+
             transaction_record = Transaction.objects.create(
                 customer=customer,
                 total_amount=cart_total(cart_items),
@@ -132,9 +152,6 @@ class CheckoutView(LoginRequiredMixin, View):
                 )
                 for item in cart_items
             ])
-            for item in cart_items:
-                item.product.stock -= item.quantity
-                item.product.save(update_fields=['stock'])
             Cart.objects.filter(pk__in=[item.pk for item in cart_items]).delete()
 
         messages.success(

@@ -57,6 +57,12 @@ class ProductDetailView(DetailView):
     def get_queryset(self):
         return Product.objects.filter(is_active=True).select_related('category')
 
+
+def legacy_product_detail(request, pk):
+    product = get_object_or_404(Product, pk=pk, is_active=True)
+    return redirect('product_detail', slug=product.slug, permanent=True)
+
+
 class AboutView(View):
     def get(self, request):
         return render(request, 'products/about.html')

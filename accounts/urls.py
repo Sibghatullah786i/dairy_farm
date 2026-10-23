@@ -1,10 +1,10 @@
 from django.urls import path
-from django.contrib.auth import views as auth_views
-
 from . import views
-from .forms import CustomerPasswordResetForm, CustomerSetPasswordForm
 from .views import (
     CustomerRegistrationView,
+    PasswordResetOTPVerificationView,
+    PasswordResetResendOTPView,
+    PasswordResetSetPasswordView,
     ProfileView,
     UserLoginView,
     UserLogoutView,
@@ -33,35 +33,32 @@ urlpatterns = [
 
     path(
         'reset-password/',
-        auth_views.PasswordResetView.as_view(
-            template_name='accounts/password_reset.html',
-            form_class=CustomerPasswordResetForm
-        ),
+        views.CustomerPasswordResetView.as_view(),
         name='reset_password'
     ),
-
+    path(
+        'password-reset/verify/',
+        PasswordResetOTPVerificationView.as_view(),
+        name='password_reset_verify',
+    ),
+    path(
+        'password-reset/resend/',
+        PasswordResetResendOTPView.as_view(),
+        name='password_reset_resend',
+    ),
+    path(
+        'password-reset/set-password/',
+        PasswordResetSetPasswordView.as_view(),
+        name='password_reset_set_password',
+    ),
     path(
         'password-reset/done/',
-        auth_views.PasswordResetDoneView.as_view(
-            template_name='accounts/password_reset_done.html'
-        ),
+        views.PasswordResetDoneView.as_view(),
         name='password_reset_done'
     ),
-
-    path(
-        'password-reset-confirm/<uidb64>/<token>/',
-        auth_views.PasswordResetConfirmView.as_view(
-            template_name='accounts/password_reset_confirm.html',
-            form_class=CustomerSetPasswordForm
-        ),
-        name='password_reset_confirm'
-    ),
-
     path(
         'password-reset-complete/',
-        auth_views.PasswordResetCompleteView.as_view(
-            template_name='accounts/password_reset_complete.html'
-        ),
+        views.PasswordResetCompleteView.as_view(),
         name='password_reset_complete'
     ),
 ]

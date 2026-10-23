@@ -1,5 +1,6 @@
 import uuid
 
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import F
 
@@ -69,6 +70,16 @@ class Transaction(models.Model):
                 .values_list('order_status', flat=True)
                 .first()
             )
+            if (
+                previous_status == self.OrderStatus.CANCELLED
+                and self.order_status != self.OrderStatus.CANCELLED
+            ):
+                raise ValidationError('A cancelled order cannot be reopened.')
+            if (
+                previous_status == self.OrderStatus.DELIVERED
+                and self.order_status == self.OrderStatus.CANCELLED
+            ):
+                raise ValidationError('A delivered order cannot be cancelled.')
             super().save(*args, **kwargs)
             if (
                 previous_status != self.OrderStatus.CANCELLED

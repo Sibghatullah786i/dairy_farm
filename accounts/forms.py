@@ -1,9 +1,8 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.models import User
 from .models import Customer
 from django.contrib.auth.forms import AuthenticationForm
-from django.contrib.auth.forms import PasswordResetForm,SetPasswordForm
 
 
 
@@ -31,12 +30,15 @@ class CustomerRegistrationForm(UserCreationForm):
 
     def clean_username(self):
         username = super().clean_username()
-        if User.objects.filter(username__iexact=username).exists():
+        if not username:
+            return username
+        normalized_username = username.strip().lower()
+        if User.objects.filter(username__iexact=normalized_username).exists():
             raise forms.ValidationError('A user with that username already exists.')
-        return username
+        return normalized_username
 
     def clean_email(self):
-        email = self.cleaned_data['email']
+        email = self.cleaned_data['email'].strip().lower()
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError('An account with this email address already exists.')
         return email
@@ -45,21 +47,63 @@ class CustomerLoginForm(AuthenticationForm):
     username= forms.CharField(widget=forms.TextInput(attrs={'autofocus':'True','class':'form-control','placeholder':'Enter your username'}))
     
     password= forms.CharField(widget=forms.PasswordInput(attrs={'class':'form-control','placeholder':'Enter your Password'}))
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if not username:
+            return username
+        return (
+            User.objects.filter(username__iexact=username)
+            .values_list('username', flat=True)
+            .first()
+            or username
+        )
     
-class CustomerPasswordResetForm(PasswordResetForm):
-    email=forms.EmailField(widget=forms.EmailInput(attrs={'auto-focus':'True','class':'form-control','placeholder':'Enter your registered email'}))
+class PasswordResetRequestForm(forms.Form):
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            'autofocus': True,
+            'class': 'form-control',
+            'placeholder': 'Enter your email address',
+            'autocomplete': 'email',
+        }),
+    )
 
     def clean_email(self):
-        email = self.cleaned_data['email']
-        if User.objects.filter(email__iexact=email, is_active=True).count() > 1:
-            raise forms.ValidationError(
-                'This email address is linked to multiple accounts. Please contact support.'
-            )
-        return email
-    
+        return self.cleaned_data['email'].strip().lower()
+
+
+class OTPVerificationForm(forms.Form):
+    otp = forms.RegexField(
+        regex=r'^\d{6}$',
+        error_messages={'invalid': 'Enter the 6-digit code from your email.'},
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '6-digit code',
+            'autocomplete': 'one-time-code',
+            'inputmode': 'numeric',
+            'maxlength': '6',
+        }),
+    )
+
+
 class CustomerSetPasswordForm(SetPasswordForm):
-    new_password1=forms.CharField(label='New Password',widget=forms.PasswordInput(attrs={'class':'form-control','placeholder':'Enter the new Password'}))
-    new_password2=forms.CharField(label='New Password',widget=forms.PasswordInput(attrs={'class':'form-control','placeholder':'Confirm new Password'}))
+    new_password1 = forms.CharField(
+        label='New Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter a new password',
+            'autocomplete': 'new-password',
+        }),
+    )
+    new_password2 = forms.CharField(
+        label='Confirm Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Confirm the new password',
+            'autocomplete': 'new-password',
+        }),
+    )
     
 class CustomerProfileForm(forms.ModelForm):
     class Meta:

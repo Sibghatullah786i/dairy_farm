@@ -7,6 +7,7 @@ from .views import (
     HomeView,
     MessageView,
     ProductDetailView,
+    legacy_product_detail,
     remove_from_cart,
     update_cart_item,
 )
@@ -15,6 +16,7 @@ from .views import (
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),
     path('categories/', CategoryView.as_view(), name='category'),
+    path('product/<int:pk>/', legacy_product_detail, name='legacy_product_detail'),
     path('product/<slug:slug>/', ProductDetailView.as_view(), name='product_detail'),
     path('about/', AboutView.as_view(), name='about'),
     path('contact/', MessageView.as_view(), name='contact'),
