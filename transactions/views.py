@@ -44,6 +44,7 @@ class CheckoutView(LoginRequiredMixin, View):
             return redirect('cart')
 
         form = CheckoutForm(initial={
+            'displayed_total': cart_total(cart_items),
             'shipping_name': customer.name or request.user.get_full_name() or request.user.username,
             'shipping_phone': customer.mobile,
             'shipping_address': customer.locality,
@@ -108,6 +109,21 @@ class CheckoutView(LoginRequiredMixin, View):
                     )
                     return redirect('cart')
                 item.product = product
+                item.line_total = product.price * item.quantity
+
+            current_total = cart_total(cart_items)
+            if form.cleaned_data['displayed_total'] != current_total:
+                form.add_error(
+                    None,
+                    'The order total has changed since you viewed checkout. '
+                    'Please review the updated total and place your order again.',
+                )
+                return render(request, self.template_name, {
+                    'form': form,
+                    'cart_items': cart_items,
+                    'cart_total': current_total,
+                    'debug': settings.DEBUG,
+                })
 
             stock_failure = None
             for item in cart_items:
@@ -130,7 +146,7 @@ class CheckoutView(LoginRequiredMixin, View):
 
             transaction_record = Transaction.objects.create(
                 customer=customer,
-                total_amount=cart_total(cart_items),
+                total_amount=current_total,
                 payment_method=form.cleaned_data['payment_method'],
                 payment_status=(
                     Transaction.PaymentStatus.PAID

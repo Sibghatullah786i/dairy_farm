@@ -32,7 +32,11 @@ class TransactionAdminForm(forms.ModelForm):
 class TransactionItemInline(admin.TabularInline):
     model = TransactionItem
     extra = 0
-    readonly_fields = ['product_name', 'quantity', 'unit_price']
+    can_delete = False
+    readonly_fields = ['product', 'product_name', 'quantity', 'unit_price']
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Transaction)
@@ -52,3 +56,6 @@ class TransactionAdmin(admin.ModelAdmin):
     search_fields = ['reference', 'customer__user__username', 'shipping_name']
     readonly_fields = ['reference', 'customer', 'total_amount', 'currency', 'created_at']
     inlines = [TransactionItemInline]
+
+    def has_delete_permission(self, request, obj=None):
+        return False

@@ -33,7 +33,8 @@ Development mode must be explicitly enabled; `DJANGO_DEBUG` defaults to
 Email is sent through Django's SMTP backend in both development and production.
 In production, keep `DJANGO_DEBUG=false`, set a strong `DJANGO_SECRET_KEY`,
 configure `DJANGO_ALLOWED_HOSTS` and SMTP settings, and serve uploaded media
-through your web server or storage service.
+through your web server or storage service. WhiteNoise serves collected static
+assets; run `python manage.py collectstatic --noinput` as part of deployment.
 
 For Gmail, configure the SMTP values in `.env`:
 
@@ -100,9 +101,14 @@ remain pending until confirmed. Contact the store for bank-transfer instructions
   copies the bundled images from `products/seed_images/` into `media/`.
 - Password reset uses a 6-digit email code that expires after five minutes;
   codes are single-use and limited to five incorrect attempts. Resending has a
-  60-second cooldown, and reset requests are rate-limited per IP. Configure a
-  shared Django cache backend in multi-process or multi-host deployments so
-  the IP rate limit is consistent across app workers.
+  60-second cooldown, and reset requests are rate-limited per IP. Login
+  attempts are limited per IP and username, and contact submissions are
+  limited per IP. Configure a shared Django cache backend in multi-process or
+  multi-host deployments so these limits are consistent across app workers.
+  When using a trusted reverse proxy, set `DJANGO_TRUST_PROXY_SSL_HEADER=true`;
+  the app then uses the rightmost address in `X-Forwarded-For` for these limits.
+  Configure the proxy to append the connecting client address and do not expose
+  the application directly to untrusted clients.
 - Production startup requires `DJANGO_SECRET_KEY`, `EMAIL_HOST`,
   `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, and `DEFAULT_FROM_EMAIL`.
 - Set `DJANGO_SECURE_HSTS_SECONDS` only after confirming HTTPS and subdomain

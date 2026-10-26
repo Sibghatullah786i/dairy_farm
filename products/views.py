@@ -1,17 +1,21 @@
+import hashlib
 from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.cache import cache
 from django.db import transaction
+from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
-from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
-from .forms import ContactMessageForm
-from .models import Cart, Product
 from accounts.models import Customer, get_customer_for_user
+from ecomm.utils import get_client_ip
+
+from .forms import ContactMessageForm
+from .models import Cart, Category, Product
 
 
 class HomeView(ListView):
@@ -36,6 +40,7 @@ class CategoryView(View):
     def get(self, request):
         category_slug = request.GET.get('slug')
         if category_slug:
+            get_object_or_404(Category, slug=category_slug)
             category_products = Product.objects.filter(
                 category__slug=category_slug,
                 is_active=True,
@@ -75,6 +80,26 @@ class MessageView(View):
     def post(self, request):
         form = ContactMessageForm(request.POST)
         if form.is_valid():
+            address_hash = hashlib.sha256(
+                get_client_ip(request).encode('utf-8'),
+            ).hexdigest()
+            key = f'contact-ip:{address_hash}'
+            if not cache.add(key, 1, timeout=60 * 60):
+                try:
+                    submissions = cache.incr(key)
+                except ValueError:
+                    cache.set(key, 2, timeout=60 * 60)
+                    submissions = 2
+                if submissions > 5:
+                    messages.error(
+                        request,
+                        'Too many messages have been sent. Please try again later.',
+                    )
+                    return render(
+                        request,
+                        'products/contact.html',
+                        {'form': form},
+                    )
             message = form.save()
             messages.success(
                 request,
@@ -87,9 +112,12 @@ class MessageView(View):
 class CartView(View):
     def get(self, request):
         if request.user.is_authenticated:
-            cart_items = Cart.objects.filter(
-                customer=get_customer_for_user(request.user),
-            ).select_related('product')
+            customer = Customer.objects.filter(user=request.user).first()
+            cart_items = (
+                Cart.objects.filter(customer=customer).select_related('product')
+                if customer
+                else []
+            )
             for item in cart_items:
                 item.line_total = item.product.price * item.quantity
             cart_total = sum(
@@ -107,6 +135,10 @@ class CartView(View):
 
 
 class AddToCartView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        product = get_object_or_404(Product, pk=pk, is_active=True)
+        return redirect('product_detail', slug=product.slug)
+
     def post(self, request, pk):
         try:
             quantity = int(request.POST.get('quantity', '1'))
@@ -158,8 +190,9 @@ class AddToCartView(LoginRequiredMixin, View):
 
 
 @login_required
-@require_POST
 def update_cart_item(request, pk):
+    if request.method != 'POST':
+        return redirect('cart') if request.method == 'GET' else HttpResponseNotAllowed(['POST'])
     try:
         quantity = int(request.POST.get('quantity', ''))
     except (TypeError, ValueError):
@@ -192,8 +225,9 @@ def update_cart_item(request, pk):
 
 
 @login_required
-@require_POST
 def remove_from_cart(request, pk):
+    if request.method != 'POST':
+        return redirect('cart') if request.method == 'GET' else HttpResponseNotAllowed(['POST'])
     customer = get_customer_for_user(request.user)
     with transaction.atomic():
         Customer.objects.select_for_update().get(pk=customer.pk)

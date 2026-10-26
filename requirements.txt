@@ -1,3 +1,4 @@
 Django==6.0.2
 Pillow==12.1.0
 python-dotenv==1.1.1
+whitenoise==6.9.0

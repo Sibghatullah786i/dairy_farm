@@ -19,7 +19,15 @@
                     <h4 class="fw-bold mb-3">Delivery details</h4>
                     <form method="post">
                         {% csrf_token %}
+                        {{ form.displayed_total }}
+                        {% for error in form.displayed_total.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                            <div class="alert alert-danger" role="alert">{{ error }}</div>
+                        {% endfor %}
                         {% for field in form %}
+                            {% if field.name != 'displayed_total' %}
                             <div class="mb-3">
                                 {% if field.name != 'payment_method' %}
                                     <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -41,6 +49,7 @@
                                     <div class="text-danger small">{{ error }}</div>
                                 {% endfor %}
                             </div>
+                            {% endif %}
                         {% endfor %}
                         {% if debug %}
                             <p class="small text-muted">

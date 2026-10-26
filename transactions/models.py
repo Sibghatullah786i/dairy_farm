@@ -2,17 +2,67 @@ import uuid
 
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import F, Sum
 
 from accounts.models import Customer
 from products.models import Product
+
+
+class TransactionQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        if 'order_status' not in kwargs:
+            return super().update(**kwargs)
+
+        new_status = kwargs['order_status']
+        if not isinstance(new_status, str):
+            raise ValidationError(
+                'Bulk order status updates must use a literal status value.',
+            )
+        valid_statuses = {value for value, _ in Transaction.OrderStatus.choices}
+        if new_status not in valid_statuses:
+            raise ValidationError('Select a valid order status.')
+
+        with transaction.atomic():
+            previous_statuses = list(
+                self.select_for_update().values_list('order_status', flat=True)
+            )
+            if (
+                new_status != Transaction.OrderStatus.CANCELLED
+                and Transaction.OrderStatus.CANCELLED in previous_statuses
+            ):
+                raise ValidationError('A cancelled order cannot be reopened.')
+            if (
+                new_status == Transaction.OrderStatus.CANCELLED
+                and Transaction.OrderStatus.DELIVERED in previous_statuses
+            ):
+                raise ValidationError('A delivered order cannot be cancelled.')
+
+            if new_status == Transaction.OrderStatus.CANCELLED:
+                order_ids = list(
+                    self.exclude(
+                        order_status=Transaction.OrderStatus.CANCELLED,
+                    ).values_list('pk', flat=True)
+                )
+                quantities = (
+                    TransactionItem.objects.filter(
+                        transaction_id__in=order_ids,
+                        product__isnull=False,
+                    )
+                    .values('product_id')
+                    .annotate(total_quantity=Sum('quantity'))
+                )
+                for item in quantities:
+                    Product.objects.filter(pk=item['product_id']).update(
+                        stock=F('stock') + item['total_quantity'],
+                    )
+
+            return super().update(**kwargs)
 
 
 class Transaction(models.Model):
     class PaymentMethod(models.TextChoices):
         CASH_ON_DELIVERY = 'cod', 'Cash on delivery'
         BANK_TRANSFER = 'bank_transfer', 'Bank transfer'
-        PAYPAK = 'paypak', 'PayPak (manual confirmation)'
         PAY_NOW = 'pay_now', 'Pay now (simulated)'
 
     class PaymentStatus(models.TextChoices):
@@ -51,6 +101,8 @@ class Transaction(models.Model):
     shipping_address = models.CharField(max_length=300)
     shipping_city = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = TransactionQuerySet.as_manager()
 
     class Meta:
         ordering = ['-created_at']

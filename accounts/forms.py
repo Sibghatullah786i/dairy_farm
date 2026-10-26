@@ -1,11 +1,12 @@
 from django import forms
-from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    SetPasswordForm,
+    UserCreationForm,
+)
 from django.contrib.auth.models import User
+
 from .models import Customer
-from django.contrib.auth.forms import AuthenticationForm
-
-
-
 
 
 class CustomerRegistrationForm(UserCreationForm):
@@ -42,11 +43,21 @@ class CustomerRegistrationForm(UserCreationForm):
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError('An account with this email address already exists.')
         return email
-    
+
 class CustomerLoginForm(AuthenticationForm):
-    username= forms.CharField(widget=forms.TextInput(attrs={'autofocus':'True','class':'form-control','placeholder':'Enter your username'}))
-    
-    password= forms.CharField(widget=forms.PasswordInput(attrs={'class':'form-control','placeholder':'Enter your Password'}))
+    username = forms.CharField(
+        widget=forms.TextInput(attrs={
+            'autofocus': True,
+            'class': 'form-control',
+            'placeholder': 'Enter your username',
+        }),
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your Password',
+        }),
+    )
 
     def clean_username(self):
         username = self.cleaned_data.get('username')
@@ -104,7 +115,7 @@ class CustomerSetPasswordForm(SetPasswordForm):
             'autocomplete': 'new-password',
         }),
     )
-    
+
 class CustomerProfileForm(forms.ModelForm):
     class Meta:
         model = Customer
@@ -116,5 +127,3 @@ class CustomerProfileForm(forms.ModelForm):
             'mobile': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '03001234567'}),
             'zipcode': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Postal code'}),
         }
- 
-    

@@ -2,6 +2,7 @@ import hashlib
 import logging
 import secrets
 import smtplib
+import threading
 import uuid
 from datetime import timedelta
 
@@ -19,6 +20,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 
+from ecomm.utils import get_client_ip
 from .forms import (
     CustomerLoginForm,
     CustomerProfileForm,
@@ -32,11 +34,13 @@ from .models import PasswordResetOTP, get_customer_for_user
 
 logger = logging.getLogger(__name__)
 
-OTP_TTL = timedelta(minutes=2)
+OTP_TTL = timedelta(minutes=5)
 OTP_RESEND_COOLDOWN = timedelta(seconds=60)
-OTP_MAX_ATTEMPTS = 2
+OTP_MAX_ATTEMPTS = 5
 RESET_IP_LIMIT = 10
 RESET_IP_WINDOW = 60 * 60
+LOGIN_ATTEMPT_LIMIT = 5
+LOGIN_ATTEMPT_WINDOW = 60 * 60
 RESET_REQUEST_SESSION_KEY = 'password_reset_request_token'
 RESET_VERIFIED_SESSION_KEY = 'password_reset_verified_token'
 GENERIC_RESET_MESSAGE = (
@@ -68,7 +72,7 @@ def _get_reset_request(request, session_key=RESET_REQUEST_SESSION_KEY):
 
 
 def _rate_limited(request):
-    address = request.META.get('REMOTE_ADDR', 'unknown')
+    address = get_client_ip(request)
     address_hash = hashlib.sha256(address.encode('utf-8')).hexdigest()
     key = f'password-reset-ip:{address_hash}'
     if cache.add(key, 1, timeout=RESET_IP_WINDOW):
@@ -85,21 +89,30 @@ def _new_otp():
     return f'{secrets.randbelow(1_000_000):06d}'
 
 
-def _send_reset_otp(reset_request, otp):
+def _send_reset_otp(email, otp):
     try:
         send_mail(
             'Your password reset verification code',
             (
                 f'Your password reset verification code is {otp}.\n\n'
-                'This code expires in 5 minutes. If you did not request a '
+                f'This code expires in {int(OTP_TTL.total_seconds() // 60)} minutes. '
+                'If you did not request a '
                 'password reset, you can ignore this email.'
             ),
             None,
-            [reset_request.user.email],
+            [email],
             fail_silently=False,
         )
     except (OSError, smtplib.SMTPException):
         logger.exception('Password reset OTP email delivery failed.')
+
+
+def _send_reset_otp_in_background(email, otp):
+    threading.Thread(
+        target=_send_reset_otp,
+        args=(email, otp),
+        daemon=True,
+    ).start()
 
 
 class CustomerPasswordResetView(View):
@@ -124,6 +137,8 @@ class CustomerPasswordResetView(View):
 
         email_request = None
         email_otp = None
+        candidate_otp = _new_otp()
+        otp_hash = make_password(candidate_otp)
         if not _rate_limited(request):
             with transaction.atomic():
                 user = User.objects.select_for_update().filter(
@@ -150,16 +165,21 @@ class CustomerPasswordResetView(View):
                             invalidated_at__isnull=True,
                             consumed_at__isnull=True,
                         ).update(invalidated_at=now)
-                        email_otp = _new_otp()
+                        email_otp = candidate_otp
                         email_request = PasswordResetOTP.objects.create(
                             user=user,
                             request_token=token,
-                            otp_hash=make_password(email_otp),
+                            otp_hash=otp_hash,
                         )
                     request.session[RESET_REQUEST_SESSION_KEY] = str(token)
 
         if email_request:
-            _send_reset_otp(email_request, email_otp)
+            transaction.on_commit(
+                lambda: _send_reset_otp_in_background(
+                    email_request.user.email,
+                    email_otp,
+                )
+            )
 
         return render(
             request,
@@ -270,7 +290,12 @@ class PasswordResetResendOTPView(View):
                 email_otp = otp
 
         if email_request:
-            _send_reset_otp(email_request, email_otp)
+            transaction.on_commit(
+                lambda: _send_reset_otp_in_background(
+                    email_request.user.email,
+                    email_otp,
+                )
+            )
 
         messages.info(
             request,
@@ -387,10 +412,27 @@ class UserLoginView(View):
         })
 
     def post(self, request):
+        username = request.POST.get('username', '').strip().lower()
+        address_hash = hashlib.sha256(
+            get_client_ip(request).encode('utf-8'),
+        ).hexdigest()
+        username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
+        rate_keys = (
+            f'login-ip:{address_hash}',
+            f'login-username:{username_hash}',
+        )
+        if any((cache.get(key) or 0) >= LOGIN_ATTEMPT_LIMIT for key in rate_keys):
+            messages.error(request, 'Too many login attempts. Please try again later.')
+            return render(request, 'accounts/login.html', {
+                'form': CustomerLoginForm(),
+                'next': request.POST.get('next', ''),
+            })
+
         form = CustomerLoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            cache.delete_many(rate_keys)
             messages.success(request, f'Welcome back, {user.username}!')
             next_url = request.POST.get('next')
             if next_url and url_has_allowed_host_and_scheme(
@@ -401,6 +443,12 @@ class UserLoginView(View):
                 return redirect(next_url)
             return redirect('home')
 
+        for key in rate_keys:
+            if not cache.add(key, 1, timeout=LOGIN_ATTEMPT_WINDOW):
+                try:
+                    cache.incr(key)
+                except ValueError:
+                    cache.set(key, 1, timeout=LOGIN_ATTEMPT_WINDOW)
         messages.error(request, 'Invalid username or password.')
         return render(request, 'accounts/login.html', {
             'form': form,
