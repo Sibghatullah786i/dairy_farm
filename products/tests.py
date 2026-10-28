@@ -59,11 +59,15 @@ class ProductFlowTests(TestCase):
             },
         )
         self.assertRedirects(login_response, add_url, fetch_redirect_response=False)
-        response = self.client.get(add_url)
+        response = self.client.get(add_url, follow=True)
 
         self.assertRedirects(
             response,
             reverse('product_detail', kwargs={'slug': self.product.slug}),
+        )
+        self.assertContains(
+            response,
+            'Please add the item again from its product page.',
         )
         self.assertFalse(Cart.objects.exists())
 

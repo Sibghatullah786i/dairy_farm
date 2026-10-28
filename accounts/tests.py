@@ -122,6 +122,30 @@ class LoginRateLimitTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.wsgi_request.user.is_authenticated)
 
+    def test_failed_attempts_from_another_ip_do_not_lock_out_the_user(self):
+        login_url = reverse('login')
+        for _ in range(LOGIN_ATTEMPT_LIMIT):
+            self.client.post(
+                login_url,
+                {
+                    'username': self.user.username,
+                    'password': 'incorrect',
+                },
+                REMOTE_ADDR='192.0.2.10',
+            )
+
+        response = self.client.post(
+            login_url,
+            {
+                'username': self.user.username,
+                'password': 'Correct-password-123!',
+            },
+            REMOTE_ADDR='198.51.100.10',
+        )
+
+        self.assertRedirects(response, reverse('home'))
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
 
 class ClientIPTests(TestCase):
     def test_forwarded_ip_is_used_only_when_proxy_is_trusted(self):

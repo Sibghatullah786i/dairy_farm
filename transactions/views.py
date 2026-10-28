@@ -113,6 +113,10 @@ class CheckoutView(LoginRequiredMixin, View):
 
             current_total = cart_total(cart_items)
             if form.cleaned_data['displayed_total'] != current_total:
+                updated_data = request.POST.copy()
+                updated_data['displayed_total'] = str(current_total)
+                form = CheckoutForm(updated_data)
+                form.is_valid()
                 form.add_error(
                     None,
                     'The order total has changed since you viewed checkout. '

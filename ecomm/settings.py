@@ -11,7 +11,12 @@ load_dotenv(BASE_DIR / '.env')
 
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
 
+SECRET_KEY_PLACEHOLDER = 'replace-with-a-random-secret-key'
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '').strip()
+if SECRET_KEY == SECRET_KEY_PLACEHOLDER:
+    raise ImproperlyConfigured(
+        'Replace the DJANGO_SECRET_KEY placeholder with a random secret value.'
+    )
 if DEBUG:
     SECRET_KEY = SECRET_KEY or 'django-insecure-local-development-key-change-me'
 elif len(SECRET_KEY) < 50:

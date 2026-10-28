@@ -57,10 +57,26 @@ class CheckoutTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'order total has changed')
+        self.assertEqual(
+            response.context['form']['displayed_total'].value(),
+            '24.00',
+        )
         self.assertEqual(Transaction.objects.count(), 0)
         self.assertEqual(Cart.objects.count(), 1)
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock, 5)
+
+        response = self.client.post(
+            self.checkout_url,
+            {
+                **self.checkout_data,
+                'displayed_total': response.context['form']['displayed_total'].value(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        order = Transaction.objects.get()
+        self.assertEqual(order.total_amount, Decimal('24.00'))
 
     def test_checkout_charges_the_confirmed_total_and_decrements_stock(self):
         response = self.client.post(

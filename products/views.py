@@ -137,6 +137,7 @@ class CartView(View):
 class AddToCartView(LoginRequiredMixin, View):
     def get(self, request, pk):
         product = get_object_or_404(Product, pk=pk, is_active=True)
+        messages.info(request, 'Please add the item again from its product page.')
         return redirect('product_detail', slug=product.slug)
 
     def post(self, request, pk):

@@ -416,10 +416,12 @@ class UserLoginView(View):
         address_hash = hashlib.sha256(
             get_client_ip(request).encode('utf-8'),
         ).hexdigest()
-        username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
+        identity_hash = hashlib.sha256(
+            f'{address_hash}:{username}'.encode('utf-8'),
+        ).hexdigest()
         rate_keys = (
             f'login-ip:{address_hash}',
-            f'login-username:{username_hash}',
+            f'login-ip-username:{identity_hash}',
         )
         if any((cache.get(key) or 0) >= LOGIN_ATTEMPT_LIMIT for key in rate_keys):
             messages.error(request, 'Too many login attempts. Please try again later.')
