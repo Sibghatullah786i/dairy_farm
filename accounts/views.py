@@ -39,7 +39,9 @@ OTP_RESEND_COOLDOWN = timedelta(seconds=60)
 OTP_MAX_ATTEMPTS = 5
 RESET_IP_LIMIT = 10
 RESET_IP_WINDOW = 60 * 60
-LOGIN_ATTEMPT_LIMIT = 5
+LOGIN_IP_USERNAME_LIMIT = 5
+LOGIN_ATTEMPT_LIMIT = LOGIN_IP_USERNAME_LIMIT
+LOGIN_IP_LIMIT = 50
 LOGIN_ATTEMPT_WINDOW = 60 * 60
 RESET_REQUEST_SESSION_KEY = 'password_reset_request_token'
 RESET_VERIFIED_SESSION_KEY = 'password_reset_verified_token'
@@ -49,6 +51,22 @@ GENERIC_RESET_MESSAGE = (
 )
 
 User = get_user_model()
+
+
+def _increment_cache_counter(key, timeout):
+    """Atomically increment a cache counter, initializing it when necessary."""
+    try:
+        cache.add(key, 0, timeout=timeout)
+        return cache.incr(key)
+    except ValueError:
+        # A backend can raise ValueError when an expiring entry disappears.
+        if cache.add(key, 1, timeout=timeout):
+            return 1
+        try:
+            return cache.incr(key)
+        except ValueError:
+            cache.set(key, 1, timeout=timeout)
+            return 1
 
 
 def _request_token(request, session_key=RESET_REQUEST_SESSION_KEY):
@@ -75,13 +93,7 @@ def _rate_limited(request):
     address = get_client_ip(request)
     address_hash = hashlib.sha256(address.encode('utf-8')).hexdigest()
     key = f'password-reset-ip:{address_hash}'
-    if cache.add(key, 1, timeout=RESET_IP_WINDOW):
-        return False
-    try:
-        count = cache.incr(key)
-    except ValueError:
-        cache.set(key, 2, timeout=RESET_IP_WINDOW)
-        count = 2
+    count = _increment_cache_counter(key, RESET_IP_WINDOW)
     return count > RESET_IP_LIMIT
 
 
@@ -423,7 +435,11 @@ class UserLoginView(View):
             f'login-ip:{address_hash}',
             f'login-ip-username:{identity_hash}',
         )
-        if any((cache.get(key) or 0) >= LOGIN_ATTEMPT_LIMIT for key in rate_keys):
+        ip_key, ip_username_key = rate_keys
+        if (
+            (cache.get(ip_key) or 0) >= LOGIN_IP_LIMIT
+            or (cache.get(ip_username_key) or 0) >= LOGIN_IP_USERNAME_LIMIT
+        ):
             messages.error(request, 'Too many login attempts. Please try again later.')
             return render(request, 'accounts/login.html', {
                 'form': CustomerLoginForm(),
@@ -446,11 +462,7 @@ class UserLoginView(View):
             return redirect('home')
 
         for key in rate_keys:
-            if not cache.add(key, 1, timeout=LOGIN_ATTEMPT_WINDOW):
-                try:
-                    cache.incr(key)
-                except ValueError:
-                    cache.set(key, 1, timeout=LOGIN_ATTEMPT_WINDOW)
+            _increment_cache_counter(key, LOGIN_ATTEMPT_WINDOW)
         messages.error(request, 'Invalid username or password.')
         return render(request, 'accounts/login.html', {
             'form': form,

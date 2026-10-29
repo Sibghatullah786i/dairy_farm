@@ -13,17 +13,32 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
 
 SECRET_KEY_PLACEHOLDER = 'replace-with-a-random-secret-key'
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '').strip()
-if SECRET_KEY == SECRET_KEY_PLACEHOLDER:
+
+if not SECRET_KEY or SECRET_KEY == SECRET_KEY_PLACEHOLDER:
+    if DEBUG:
+        import warnings
+
+        warnings.warn(
+            'DJANGO_SECRET_KEY is missing or still uses the placeholder. '
+            'Using an insecure development-only key. '
+            'Never use this key in production.',
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        SECRET_KEY = (
+            'django-insecure-local-development-key-change-me'
+        )
+    else:
+        raise ImproperlyConfigured(
+            'Set DJANGO_SECRET_KEY to a random secret value '
+            'of at least 50 characters when DEBUG is false.'
+        )
+elif not DEBUG and len(SECRET_KEY) < 50:
     raise ImproperlyConfigured(
-        'Replace the DJANGO_SECRET_KEY placeholder with a random secret value.'
+        'DJANGO_SECRET_KEY must be a random value of at least 50 '
+        'characters when DEBUG is false.'
     )
-if DEBUG:
-    SECRET_KEY = SECRET_KEY or 'django-insecure-local-development-key-change-me'
-elif len(SECRET_KEY) < 50:
-    raise ImproperlyConfigured(
-        'DJANGO_SECRET_KEY must be a random value of at least 50 characters '
-        'when DEBUG is false.'
-    )
+
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
@@ -32,10 +47,13 @@ ALLOWED_HOSTS = [
     ).split(',')
     if host.strip()
 ]
+
 if not DEBUG and not ALLOWED_HOSTS:
     raise ImproperlyConfigured(
-        'DJANGO_ALLOWED_HOSTS must contain production host names when DEBUG is false.'
+        'DJANGO_ALLOWED_HOSTS must contain production host names '
+        'when DEBUG is false.'
     )
+
 
 
 # Application definition

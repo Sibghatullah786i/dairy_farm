@@ -1,3 +1,6 @@
+import hashlib
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -9,7 +12,13 @@ from django.utils import timezone
 
 from ecomm.utils import get_client_ip
 from .models import PasswordResetOTP
-from .views import LOGIN_ATTEMPT_LIMIT, OTP_MAX_ATTEMPTS, OTP_TTL
+from .views import (
+    LOGIN_ATTEMPT_LIMIT,
+    LOGIN_IP_LIMIT,
+    OTP_MAX_ATTEMPTS,
+    OTP_TTL,
+    _increment_cache_counter,
+)
 
 
 User = get_user_model()
@@ -145,6 +154,114 @@ class LoginRateLimitTests(TestCase):
 
         self.assertRedirects(response, reverse('home'))
         self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+    def test_ip_limit_allows_threshold_then_blocks(self):
+        login_url = reverse('login')
+        for attempt in range(LOGIN_IP_LIMIT):
+            response = self.client.post(
+                login_url,
+                {'username': f'unrelated-{attempt % 5}', 'password': 'incorrect'},
+                REMOTE_ADDR='192.0.2.20',
+            )
+            self.assertEqual(response.status_code, 200)
+
+        response = self.client.post(
+            login_url,
+            {'username': 'unrelated-0', 'password': 'incorrect'},
+            REMOTE_ADDR='192.0.2.20',
+        )
+        self.assertContains(response, 'Too many login attempts')
+
+    def test_account_limit_remains_strict(self):
+        login_url = reverse('login')
+        for _ in range(LOGIN_ATTEMPT_LIMIT):
+            self.client.post(
+                login_url,
+                {'username': self.user.username, 'password': 'incorrect'},
+                REMOTE_ADDR='192.0.2.30',
+            )
+
+        response = self.client.post(
+            login_url,
+            {'username': self.user.username, 'password': 'Correct-password-123!'},
+            REMOTE_ADDR='192.0.2.30',
+        )
+        self.assertContains(response, 'Too many login attempts')
+
+    def test_other_username_does_not_increment_account_counter(self):
+        login_url = reverse('login')
+        for _ in range(LOGIN_ATTEMPT_LIMIT):
+            self.client.post(
+                login_url,
+                {'username': self.user.username, 'password': 'incorrect'},
+                REMOTE_ADDR='192.0.2.40',
+            )
+        self.client.post(
+            login_url,
+            {'username': 'another-user', 'password': 'incorrect'},
+            REMOTE_ADDR='192.0.2.40',
+        )
+
+        address_hash = hashlib.sha256(b'192.0.2.40').hexdigest()
+        other_identity = hashlib.sha256(
+            f'{address_hash}:another-user'.encode(),
+        ).hexdigest()
+        self.assertEqual(cache.get(f'login-ip-username:{other_identity}'), 1)
+        login_identity = hashlib.sha256(
+            f'{address_hash}:{self.user.username}'.encode(),
+        ).hexdigest()
+        self.assertEqual(cache.get(f'login-ip-username:{login_identity}'), 5)
+
+    def test_ip_counters_are_independent_by_address(self):
+        login_url = reverse('login')
+        for _ in range(3):
+            self.client.post(
+                login_url,
+                {'username': 'ip-one', 'password': 'incorrect'},
+                REMOTE_ADDR='192.0.2.50',
+            )
+        self.client.post(
+            login_url,
+            {'username': 'ip-one', 'password': 'incorrect'},
+            REMOTE_ADDR='198.51.100.50',
+        )
+
+        first_hash = hashlib.sha256(b'192.0.2.50').hexdigest()
+        second_hash = hashlib.sha256(b'198.51.100.50').hexdigest()
+        self.assertEqual(cache.get(f'login-ip:{first_hash}'), 3)
+        self.assertEqual(cache.get(f'login-ip:{second_hash}'), 1)
+
+    def test_shared_ip_users_are_not_blocked_at_old_limit(self):
+        login_url = reverse('login')
+        for attempt in range(LOGIN_ATTEMPT_LIMIT * 2):
+            self.client.post(
+                login_url,
+                {'username': f'shared-user-{attempt}', 'password': 'incorrect'},
+                REMOTE_ADDR='203.0.113.60',
+            )
+
+        response = self.client.post(
+            login_url,
+            {'username': self.user.username, 'password': 'Correct-password-123!'},
+            REMOTE_ADDR='203.0.113.60',
+        )
+        self.assertRedirects(response, reverse('home'))
+
+    def test_counter_expires(self):
+        key = 'login-counter-expiry-test'
+        self.assertEqual(_increment_cache_counter(key, 1), 1)
+        time.sleep(1.1)
+        self.assertEqual(_increment_cache_counter(key, 1), 1)
+
+    def test_concurrent_counter_increments(self):
+        key = 'login-counter-concurrency-test'
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            results = list(executor.map(
+                lambda _: _increment_cache_counter(key, 60),
+                range(100),
+            ))
+        self.assertEqual(sorted(results)[-1], 100)
+        self.assertEqual(cache.get(key), 100)
 
 
 class ClientIPTests(TestCase):
