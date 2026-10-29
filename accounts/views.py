@@ -2,7 +2,6 @@ import hashlib
 import logging
 import secrets
 import smtplib
-import threading
 import uuid
 from datetime import timedelta
 
@@ -19,6 +18,7 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
+from celery import shared_task
 
 from ecomm.utils import get_client_ip
 from .forms import (
@@ -119,12 +119,13 @@ def _send_reset_otp(email, otp):
         logger.exception('Password reset OTP email delivery failed.')
 
 
+@shared_task
+def _send_reset_otp_task(email, otp):
+    _send_reset_otp(email, otp)
+
+
 def _send_reset_otp_in_background(email, otp):
-    threading.Thread(
-        target=_send_reset_otp,
-        args=(email, otp),
-        daemon=True,
-    ).start()
+    _send_reset_otp_task.delay(email, otp)
 
 
 class CustomerPasswordResetView(View):
@@ -461,9 +462,18 @@ class UserLoginView(View):
                 return redirect(next_url)
             return redirect('home')
 
-        for key in rate_keys:
-            _increment_cache_counter(key, LOGIN_ATTEMPT_WINDOW)
-        messages.error(request, 'Invalid username or password.')
+        ip_count = _increment_cache_counter(ip_key, LOGIN_ATTEMPT_WINDOW)
+        ip_username_count = _increment_cache_counter(
+            ip_username_key,
+            LOGIN_ATTEMPT_WINDOW,
+        )
+        if (
+            ip_count > LOGIN_IP_LIMIT
+            or ip_username_count > LOGIN_IP_USERNAME_LIMIT
+        ):
+            messages.error(request, 'Too many login attempts. Please try again later.')
+        else:
+            messages.error(request, 'Invalid username or password.')
         return render(request, 'accounts/login.html', {
             'form': form,
             'next': request.POST.get('next', ''),
