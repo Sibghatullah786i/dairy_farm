@@ -54,6 +54,19 @@ passwords**, create an app password, and copy it into `.env`. If the App
 passwords option is unavailable, the account may not meet Google's eligibility
 requirements. Never commit `.env`; it is ignored by Git.
 
+Password-reset emails are sent by Celery. Development mode automatically runs
+Celery tasks eagerly when `CELERY_BROKER_URL` is empty. For a broker-backed
+worker, set `CELERY_BROKER_URL` in `.env` (Redis is included in the pinned
+dependencies) and start the worker in a separate PowerShell window:
+
+```dotenv
+CELERY_BROKER_URL=redis://:password@localhost:6379/0
+```
+
+```powershell
+celery -A ecomm worker -l info
+```
+
 For production HTTPS settings, configure `DJANGO_SECURE_HSTS_SECONDS` only
 after HTTPS is configured:
 ```powershell

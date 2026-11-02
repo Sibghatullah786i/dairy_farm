@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core import mail
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -86,12 +87,30 @@ class PasswordResetTests(TestCase):
         self.assertIsNotNone(reset_request.invalidated_at)
 
     def test_reset_email_uses_the_configured_expiry(self):
-        with patch('accounts.views.send_mail') as send_mail:
+        with patch('accounts.tasks.send_mail') as send_mail:
             from .views import _send_reset_otp
 
             _send_reset_otp(self.user.email, '123456')
 
         self.assertIn('expires in 5 minutes', send_mail.call_args.args[1])
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_BROKER_URL='',
+    )
+    def test_reset_email_runs_without_a_configured_broker(self):
+        mail.outbox.clear()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse('reset_password'),
+                {'email': self.user.email},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.user.email])
 
     @patch('accounts.views._send_reset_otp_in_background')
     def test_unknown_email_still_performs_password_hash_work(self, send_reset_email):

@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -183,6 +184,8 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', '') or EMAIL_HOST_USER
 
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', '')
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', '')
+CELERY_TASK_ALWAYS_EAGER = DEBUG and not CELERY_BROKER_URL
+CELERY_TASK_IGNORE_RESULT = True
 if not DEBUG and not all((
     EMAIL_HOST,
     EMAIL_HOST_USER,
@@ -194,16 +197,20 @@ if not DEBUG and not all((
         'DEFAULT_FROM_EMAIL for production SMTP delivery.'
     )
 
-SECURE_SSL_REDIRECT = not DEBUG
-SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_SECURE_HSTS_SECONDS', '0'))
-SECURE_HSTS_INCLUDE_SUBDOMAINS = (
-    os.environ.get('DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS', '').lower()
-    in {'1', 'true', 'yes'}
-)
-SECURE_HSTS_PRELOAD = (
-    os.environ.get('DJANGO_SECURE_HSTS_PRELOAD', '').lower()
-    in {'1', 'true', 'yes'}
-)
+TESTING = 'test' in sys.argv
+SECURE_SSL_REDIRECT = not DEBUG and not TESTING
+SECURE_HSTS_SECONDS = int(os.environ.get(
+    'DJANGO_SECURE_HSTS_SECONDS',
+    '31536000' if not DEBUG else '0',
+))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = os.environ.get(
+    'DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS',
+    'false' if DEBUG else 'true',
+).lower() in {'1', 'true', 'yes'}
+SECURE_HSTS_PRELOAD = os.environ.get(
+    'DJANGO_SECURE_HSTS_PRELOAD',
+    'false' if DEBUG else 'true',
+).lower() in {'1', 'true', 'yes'}
 if os.environ.get('DJANGO_TRUST_PROXY_SSL_HEADER', '').lower() in {
     '1',
     'true',

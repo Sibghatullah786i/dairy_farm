@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import secrets
-import smtplib
 import uuid
 from datetime import timedelta
 
@@ -11,14 +10,13 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.cache import cache
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import F
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
-from celery import shared_task
+from kombu.exceptions import OperationalError
 
 from ecomm.utils import get_client_ip
 from .forms import (
@@ -102,30 +100,18 @@ def _new_otp():
 
 
 def _send_reset_otp(email, otp):
-    try:
-        send_mail(
-            'Your password reset verification code',
-            (
-                f'Your password reset verification code is {otp}.\n\n'
-                f'This code expires in {int(OTP_TTL.total_seconds() // 60)} minutes. '
-                'If you did not request a '
-                'password reset, you can ignore this email.'
-            ),
-            None,
-            [email],
-            fail_silently=False,
-        )
-    except (OSError, smtplib.SMTPException):
-        logger.exception('Password reset OTP email delivery failed.')
+    from .tasks import send_reset_otp_email
 
-
-@shared_task
-def _send_reset_otp_task(email, otp):
-    _send_reset_otp(email, otp)
+    send_reset_otp_email(email, otp)
 
 
 def _send_reset_otp_in_background(email, otp):
-    _send_reset_otp_task.delay(email, otp)
+    from .tasks import send_reset_otp_task
+
+    try:
+        send_reset_otp_task.delay(email, otp)
+    except OperationalError:
+        logger.exception('Password reset OTP task could not be queued.')
 
 
 class CustomerPasswordResetView(View):
@@ -468,8 +454,8 @@ class UserLoginView(View):
             LOGIN_ATTEMPT_WINDOW,
         )
         if (
-            ip_count > LOGIN_IP_LIMIT
-            or ip_username_count > LOGIN_IP_USERNAME_LIMIT
+            ip_count >= LOGIN_IP_LIMIT
+            or ip_username_count >= LOGIN_IP_USERNAME_LIMIT
         ):
             messages.error(request, 'Too many login attempts. Please try again later.')
         else:
