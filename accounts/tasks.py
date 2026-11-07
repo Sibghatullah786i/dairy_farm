@@ -1,6 +1,7 @@
 import smtplib
 
 from celery import shared_task
+from django.conf import settings
 from django.core.mail import send_mail
 
 
@@ -9,7 +10,8 @@ def send_reset_otp_email(email, otp):
         'Your password reset verification code',
         (
             f'Your password reset verification code is {otp}.\n\n'
-            'This code expires in 5 minutes. If you did not request a '
+            f'This code expires in {settings.PASSWORD_RESET_OTP_TTL_MINUTES} minutes. '
+            'If you did not request a '
             'password reset, you can ignore this email.'
         ),
         None,

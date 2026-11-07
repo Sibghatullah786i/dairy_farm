@@ -7,6 +7,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core import mail
+from kombu.exceptions import OperationalError
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -88,11 +89,33 @@ class PasswordResetTests(TestCase):
 
     def test_reset_email_uses_the_configured_expiry(self):
         with patch('accounts.tasks.send_mail') as send_mail:
-            from .views import _send_reset_otp
+            from .tasks import send_reset_otp_email
 
-            _send_reset_otp(self.user.email, '123456')
+            send_reset_otp_email(self.user.email, '123456')
 
         self.assertIn('expires in 5 minutes', send_mail.call_args.args[1])
+
+    @patch(
+        'accounts.tasks.send_reset_otp_task.delay',
+        side_effect=OperationalError('broker unavailable'),
+    )
+    def test_broker_failure_returns_generic_response_for_registered_and_unknown_email(
+        self,
+        delay,
+    ):
+        with self.captureOnCommitCallbacks(execute=True):
+            registered_response = self.client.post(
+                reverse('reset_password'),
+                {'email': self.user.email},
+            )
+            unknown_response = self.client.post(
+                reverse('reset_password'),
+                {'email': 'unknown@example.com'},
+            )
+
+        self.assertEqual(registered_response.status_code, 200)
+        self.assertEqual(unknown_response.status_code, 200)
+        self.assertEqual(delay.call_count, 1)
 
     @override_settings(
         EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',

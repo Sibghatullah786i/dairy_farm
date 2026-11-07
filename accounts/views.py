@@ -10,6 +10,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.cache import cache
+from django.conf import settings
 from django.db import transaction
 from django.db.models import F
 from django.shortcuts import redirect, render
@@ -32,7 +33,7 @@ from .models import PasswordResetOTP, get_customer_for_user
 
 logger = logging.getLogger(__name__)
 
-OTP_TTL = timedelta(minutes=5)
+OTP_TTL = timedelta(minutes=settings.PASSWORD_RESET_OTP_TTL_MINUTES)
 OTP_RESEND_COOLDOWN = timedelta(seconds=60)
 OTP_MAX_ATTEMPTS = 5
 RESET_IP_LIMIT = 10
@@ -97,12 +98,6 @@ def _rate_limited(request):
 
 def _new_otp():
     return f'{secrets.randbelow(1_000_000):06d}'
-
-
-def _send_reset_otp(email, otp):
-    from .tasks import send_reset_otp_email
-
-    send_reset_otp_email(email, otp)
 
 
 def _send_reset_otp_in_background(email, otp):
@@ -423,9 +418,14 @@ class UserLoginView(View):
             f'login-ip-username:{identity_hash}',
         )
         ip_key, ip_username_key = rate_keys
+        ip_count = _increment_cache_counter(ip_key, LOGIN_ATTEMPT_WINDOW)
+        ip_username_count = _increment_cache_counter(
+            ip_username_key,
+            LOGIN_ATTEMPT_WINDOW,
+        )
         if (
-            (cache.get(ip_key) or 0) >= LOGIN_IP_LIMIT
-            or (cache.get(ip_username_key) or 0) >= LOGIN_IP_USERNAME_LIMIT
+            ip_count >= LOGIN_IP_LIMIT
+            or ip_username_count >= LOGIN_IP_USERNAME_LIMIT
         ):
             messages.error(request, 'Too many login attempts. Please try again later.')
             return render(request, 'accounts/login.html', {
@@ -448,11 +448,6 @@ class UserLoginView(View):
                 return redirect(next_url)
             return redirect('home')
 
-        ip_count = _increment_cache_counter(ip_key, LOGIN_ATTEMPT_WINDOW)
-        ip_username_count = _increment_cache_counter(
-            ip_username_key,
-            LOGIN_ATTEMPT_WINDOW,
-        )
         if (
             ip_count >= LOGIN_IP_LIMIT
             or ip_username_count >= LOGIN_IP_USERNAME_LIMIT
