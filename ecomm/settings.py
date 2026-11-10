@@ -186,11 +186,20 @@ CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', '')
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', '')
 CELERY_TASK_ALWAYS_EAGER = DEBUG and not CELERY_BROKER_URL
 CELERY_TASK_PUBLISH_RETRY = False
-CELERY_BROKER_CONNECTION_TIMEOUT = 5
+CELERY_BROKER_CONNECTION_TIMEOUT = 0.5
 CELERY_TASK_IGNORE_RESULT = True
-PASSWORD_RESET_OTP_TTL_MINUTES = int(
-    os.environ.get('PASSWORD_RESET_OTP_TTL_MINUTES', '5')
-)
+try:
+    PASSWORD_RESET_OTP_TTL_MINUTES = int(
+        os.environ.get('PASSWORD_RESET_OTP_TTL_MINUTES', '5')
+    )
+except ValueError as exc:
+    raise ImproperlyConfigured(
+        'PASSWORD_RESET_OTP_TTL_MINUTES must be a positive integer.'
+    ) from exc
+if PASSWORD_RESET_OTP_TTL_MINUTES <= 0:
+    raise ImproperlyConfigured(
+        'PASSWORD_RESET_OTP_TTL_MINUTES must be a positive integer.'
+    )
 if not DEBUG and not CELERY_BROKER_URL:
     raise ImproperlyConfigured(
         'CELERY_BROKER_URL must be configured when DEBUG is false.'

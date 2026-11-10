@@ -413,19 +413,16 @@ class UserLoginView(View):
         identity_hash = hashlib.sha256(
             f'{address_hash}:{username}'.encode('utf-8'),
         ).hexdigest()
-        rate_keys = (
-            f'login-ip:{address_hash}',
-            f'login-ip-username:{identity_hash}',
-        )
-        ip_key, ip_username_key = rate_keys
+        ip_key = f'login-ip:{address_hash}'
+        ip_username_key = f'login-ip-username:{identity_hash}'
         ip_count = _increment_cache_counter(ip_key, LOGIN_ATTEMPT_WINDOW)
         ip_username_count = _increment_cache_counter(
             ip_username_key,
             LOGIN_ATTEMPT_WINDOW,
         )
         if (
-            ip_count >= LOGIN_IP_LIMIT
-            or ip_username_count >= LOGIN_IP_USERNAME_LIMIT
+            ip_count > LOGIN_IP_LIMIT
+            or ip_username_count > LOGIN_IP_USERNAME_LIMIT
         ):
             messages.error(request, 'Too many login attempts. Please try again later.')
             return render(request, 'accounts/login.html', {
@@ -437,7 +434,7 @@ class UserLoginView(View):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            cache.delete_many(rate_keys)
+            cache.delete(ip_username_key)
             messages.success(request, f'Welcome back, {user.username}!')
             next_url = request.POST.get('next')
             if next_url and url_has_allowed_host_and_scheme(
@@ -448,13 +445,7 @@ class UserLoginView(View):
                 return redirect(next_url)
             return redirect('home')
 
-        if (
-            ip_count >= LOGIN_IP_LIMIT
-            or ip_username_count >= LOGIN_IP_USERNAME_LIMIT
-        ):
-            messages.error(request, 'Too many login attempts. Please try again later.')
-        else:
-            messages.error(request, 'Invalid username or password.')
+        messages.error(request, 'Invalid username or password.')
         return render(request, 'accounts/login.html', {
             'form': form,
             'next': request.POST.get('next', ''),

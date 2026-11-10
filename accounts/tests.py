@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core import mail
@@ -36,7 +37,7 @@ class PasswordResetTests(TestCase):
         )
 
     @patch('accounts.views._send_reset_otp_in_background')
-    def test_code_allows_five_attempts_and_expires_after_five_minutes(
+    def test_code_allows_five_attempts_and_uses_configured_expiry(
         self,
         send_reset_email,
     ):
@@ -49,7 +50,10 @@ class PasswordResetTests(TestCase):
         self.assertEqual(send_reset_email.call_count, 1)
         otp = send_reset_email.call_args.args[1]
         reset_request = PasswordResetOTP.objects.get(user=self.user)
-        self.assertEqual(OTP_TTL, timedelta(minutes=5))
+        self.assertEqual(
+            OTP_TTL,
+            timedelta(minutes=settings.PASSWORD_RESET_OTP_TTL_MINUTES),
+        )
         self.assertEqual(OTP_MAX_ATTEMPTS, 5)
 
         for _ in range(4):
@@ -87,13 +91,17 @@ class PasswordResetTests(TestCase):
         reset_request.refresh_from_db()
         self.assertIsNotNone(reset_request.invalidated_at)
 
+    @override_settings(PASSWORD_RESET_OTP_TTL_MINUTES=10)
     def test_reset_email_uses_the_configured_expiry(self):
         with patch('accounts.tasks.send_mail') as send_mail:
             from .tasks import send_reset_otp_email
 
             send_reset_otp_email(self.user.email, '123456')
 
-        self.assertIn('expires in 5 minutes', send_mail.call_args.args[1])
+        self.assertIn(
+            f'expires in {settings.PASSWORD_RESET_OTP_TTL_MINUTES} minutes',
+            send_mail.call_args.args[1],
+        )
 
     @patch(
         'accounts.tasks.send_reset_otp_task.delay',
@@ -115,6 +123,18 @@ class PasswordResetTests(TestCase):
 
         self.assertEqual(registered_response.status_code, 200)
         self.assertEqual(unknown_response.status_code, 200)
+        self.assertTemplateUsed(
+            registered_response,
+            'accounts/password_reset_verify.html',
+        )
+        self.assertTemplateUsed(
+            unknown_response,
+            'accounts/password_reset_verify.html',
+        )
+        self.assertEqual(
+            registered_response.context['generic_message'],
+            unknown_response.context['generic_message'],
+        )
         self.assertEqual(delay.call_count, 1)
 
     @override_settings(
@@ -173,6 +193,24 @@ class LoginRateLimitTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.wsgi_request.user.is_authenticated)
 
+    def test_fifth_login_attempt_with_correct_password_succeeds(self):
+        login_url = reverse('login')
+        for _ in range(LOGIN_ATTEMPT_LIMIT - 1):
+            self.client.post(
+                login_url,
+                {'username': self.user.username, 'password': 'incorrect'},
+                REMOTE_ADDR='192.0.2.11',
+            )
+
+        response = self.client.post(
+            login_url,
+            {'username': self.user.username, 'password': 'Correct-password-123!'},
+            REMOTE_ADDR='192.0.2.11',
+        )
+
+        self.assertRedirects(response, reverse('home'))
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
     def test_failed_attempts_from_another_ip_do_not_lock_out_the_user(self):
         login_url = reverse('login')
         for _ in range(LOGIN_ATTEMPT_LIMIT):
@@ -202,10 +240,11 @@ class LoginRateLimitTests(TestCase):
         for attempt in range(LOGIN_IP_LIMIT):
             response = self.client.post(
                 login_url,
-                {'username': f'unrelated-{attempt % 5}', 'password': 'incorrect'},
+                {'username': f'unrelated-{attempt}', 'password': 'incorrect'},
                 REMOTE_ADDR='192.0.2.20',
             )
             self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Invalid username or password.')
 
         response = self.client.post(
             login_url,
@@ -213,6 +252,29 @@ class LoginRateLimitTests(TestCase):
             REMOTE_ADDR='192.0.2.20',
         )
         self.assertContains(response, 'Too many login attempts')
+
+    def test_successful_login_does_not_reset_ip_counter(self):
+        login_url = reverse('login')
+        remote_addr = '192.0.2.21'
+        self.client.post(
+            login_url,
+            {'username': 'unrelated', 'password': 'incorrect'},
+            REMOTE_ADDR=remote_addr,
+        )
+
+        response = self.client.post(
+            login_url,
+            {'username': self.user.username, 'password': 'Correct-password-123!'},
+            REMOTE_ADDR=remote_addr,
+        )
+
+        address_hash = hashlib.sha256(remote_addr.encode()).hexdigest()
+        identity_hash = hashlib.sha256(
+            f'{address_hash}:{self.user.username}'.encode(),
+        ).hexdigest()
+        self.assertRedirects(response, reverse('home'))
+        self.assertEqual(cache.get(f'login-ip:{address_hash}'), 2)
+        self.assertIsNone(cache.get(f'login-ip-username:{identity_hash}'))
 
     def test_account_limit_remains_strict(self):
         login_url = reverse('login')

@@ -61,7 +61,11 @@ dependencies) and start the worker in a separate PowerShell window:
 
 ```dotenv
 CELERY_BROKER_URL=redis://:password@localhost:6379/0
+PASSWORD_RESET_OTP_TTL_MINUTES=5
 ```
+
+`PASSWORD_RESET_OTP_TTL_MINUTES` sets the password-reset code lifetime in
+minutes. It must be a positive integer and defaults to `5`.
 
 ```powershell
 celery -A ecomm worker -l info
@@ -112,7 +116,8 @@ remain pending until confirmed. Contact the store for bank-transfer instructions
 - Product uploads are stored under `media/`; this directory is ignored by Git.
 - `python manage.py seed_store` creates the starter categories and products and
   copies the bundled images from `products/seed_images/` into `media/`.
-- Password reset uses a 6-digit email code that expires after five minutes;
+- Password reset uses a 6-digit email code that expires after the configured
+  `PASSWORD_RESET_OTP_TTL_MINUTES` (five minutes by default);
   codes are single-use and limited to five incorrect attempts. Resending has a
   60-second cooldown, and reset requests are rate-limited per IP. Login
   attempts are limited per IP and username, and contact submissions are
