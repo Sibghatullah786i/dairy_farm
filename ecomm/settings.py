@@ -11,6 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
+TESTING = 'test' in sys.argv
 
 SECRET_KEY_PLACEHOLDER = 'replace-with-a-random-secret-key'
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '').strip()
@@ -184,7 +185,7 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', '') or EMAIL_HOST_USER
 
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', '')
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', '')
-CELERY_TASK_ALWAYS_EAGER = DEBUG and not CELERY_BROKER_URL
+CELERY_TASK_ALWAYS_EAGER = TESTING or (DEBUG and not CELERY_BROKER_URL)
 CELERY_TASK_PUBLISH_RETRY = False
 CELERY_BROKER_CONNECTION_TIMEOUT = 0.5
 CELERY_TASK_IGNORE_RESULT = True
@@ -215,7 +216,6 @@ if not DEBUG and not all((
         'DEFAULT_FROM_EMAIL for production SMTP delivery.'
     )
 
-TESTING = 'test' in sys.argv
 SECURE_SSL_REDIRECT = not DEBUG and not TESTING
 SECURE_HSTS_SECONDS = int(os.environ.get(
     'DJANGO_SECURE_HSTS_SECONDS',

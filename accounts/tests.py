@@ -111,15 +111,16 @@ class PasswordResetTests(TestCase):
         self,
         delay,
     ):
-        with self.captureOnCommitCallbacks(execute=True):
-            registered_response = self.client.post(
-                reverse('reset_password'),
-                {'email': self.user.email},
-            )
-            unknown_response = self.client.post(
-                reverse('reset_password'),
-                {'email': 'unknown@example.com'},
-            )
+        with self.assertLogs('accounts.views', level='ERROR') as log_output:
+            with self.captureOnCommitCallbacks(execute=True):
+                registered_response = self.client.post(
+                    reverse('reset_password'),
+                    {'email': self.user.email},
+                )
+                unknown_response = self.client.post(
+                    reverse('reset_password'),
+                    {'email': 'unknown@example.com'},
+                )
 
         self.assertEqual(registered_response.status_code, 200)
         self.assertEqual(unknown_response.status_code, 200)
@@ -136,13 +137,16 @@ class PasswordResetTests(TestCase):
             unknown_response.context['generic_message'],
         )
         self.assertEqual(delay.call_count, 1)
+        self.assertIn(
+            'Password reset OTP task could not be queued.',
+            log_output.output[0],
+        )
 
     @override_settings(
         EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
-        CELERY_TASK_ALWAYS_EAGER=True,
-        CELERY_BROKER_URL='',
     )
     def test_reset_email_runs_without_a_configured_broker(self):
+        self.assertTrue(settings.CELERY_TASK_ALWAYS_EAGER)
         mail.outbox.clear()
 
         with self.captureOnCommitCallbacks(execute=True):
